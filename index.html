@@ -361,11 +361,18 @@
     $('#quiz').innerHTML = html;
 
     $$('#quiz .choice').forEach(el=>{
-      el.addEventListener('click',()=>{
+      el.addEventListener('click', ()=>{
         answers[data.id] = Number(el.dataset.index);
-        persist(); renderCurrent(); updateProgress();
+        // 再描画せず選択状態のみ更新（シャッフル再実行を防ぐ）
+        $$('#quiz .choice').forEach(c=>{
+          const checked = Number(c.dataset.index) === answers[data.id];
+          c.setAttribute('aria-checked', String(checked));
+        });
+        updateProgress();
+        persist();
       });
     });
+
 
     $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); renderCurrent(); updateProgress(); persist(); });
     $('#btn-next').addEventListener('click', ()=>{ if(current===bank.length-1) finish(); else { current++; renderCurrent(); updateProgress(); persist(); } });
