@@ -130,6 +130,10 @@
   let questions = [];        // 既存コードが参照する配列
   window.questions = questions;
 
+  (async () => {
+  
+  })();
+
   // 受験設定
   const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
   const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
@@ -150,6 +154,13 @@
   let startedAt = null;
 
   function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+
+  function persist(){
+    const payload = { selectedGrade, order, answers, current, startedAt, bankIds: bank.map(q=>q.id) };
+    localStorage.setItem(stateKey, JSON.stringify(payload));
+  }
+  function restore(){ const raw = localStorage.getItem(stateKey); if(!raw) return null; try{ return JSON.parse(raw); }catch{ return null } }
+  function clearState(){ localStorage.removeItem(stateKey); }
 
   // --- メニュー ---
   function setupMenu(){
@@ -289,6 +300,11 @@
   }
 
   function showReview(){ $('#summary').classList.remove('hidden'); window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'}); }
+
+  function exportJSON(){
+    const blob = new Blob([JSON.stringify(questions, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'questions.sample.json'; a.click();
+  }
 
   function exportCSV(){
     const rows = [ ['no','grade','id','question','your','correct','result','exp'] ];
