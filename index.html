@@ -137,7 +137,9 @@
   // 受験設定
   const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
   const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
-  const SHUFFLE_CHOICES = true; // 選択肢シャッフル
+  const SHUFFLE_CHOICES = true; 
+  const USE_ALL_QUESTIONS = true; // 追加: 選んだ級の全問題を出題
+// 選択肢シャッフル
   const QUESTIONS_PER_EXAM = 6; // 一回の出題数（該当級からランダム抽出）。0なら全問
 
   // ==== 2) 以下は基本ロジック ================================================
@@ -183,8 +185,10 @@
     const pool = questions.filter(q=>q.grade===grade);
     if(pool.length===0){ alert(`${grade}級の問題が未登録です。questionsのgradeを設定してください。`); return; }
     bank = [...pool];
-    if(QUESTIONS_PER_EXAM && QUESTIONS_PER_EXAM>0 && bank.length>QUESTIONS_PER_EXAM){
-      bank = shuffle(bank).slice(0, QUESTIONS_PER_EXAM);
+    if(!(typeof USE_ALL_QUESTIONS!=='undefined' && USE_ALL_QUESTIONS)){
+      if(QUESTIONS_PER_EXAM && QUESTIONS_PER_EXAM > 0 && bank.length > QUESTIONS_PER_EXAM){
+        bank = shuffle(bank).slice(0, QUESTIONS_PER_EXAM);
+      }
     }
     order = bank.map((_,i)=>i);
     if(SHUFFLE_QUESTIONS) order = shuffle(order);
@@ -210,6 +214,26 @@
         updateProgress();
       }
     }
+  }
+
+  function goToMenu(){
+    try { if (countdownId) { clearInterval(countdownId); countdownId = null; } } catch {}
+    try { clearState && clearState(); } catch {}
+    try { selectedGrade = null; } catch {}
+    try { bank = []; order = []; answers = {}; current = 0; startedAt = null; } catch {}
+    try { choiceOrder = {}; } catch {}
+    // UI
+    document.getElementById('menu')?.classList.remove('hidden');
+    document.getElementById('intro')?.classList.add('hidden');
+    document.getElementById('quiz')?.classList.add('hidden');
+    document.getElementById('summary')?.classList.add('hidden');
+    // progress reset
+    const $ = (s)=>document.querySelector(s);
+    $('#grade-label') && ($('#grade-label').textContent = '—級');
+    $('#progress') && ($('#progress').value = 0);
+    $('#progress-label') && ($('#progress-label').textContent = '0');
+    $('#pos') && ($('#pos').textContent = '0');
+    $('#total') && ($('#total').textContent = '0');
   }
 
   function start(){
