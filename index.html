@@ -130,18 +130,6 @@
   let questions = [];        // 既存コードが参照する配列
   window.questions = questions;
 
-  (async () => {
-  try {
-      const res = await fetch('questions.json', {cache: 'no-store'});
-      const data = await res.json();
-      // 中身を差し替え（参照を保ったまま更新）
-      questions.splice(0, questions.length, ...data);
-      // メニューの表示を更新したい場合はここで何か処理してOK
-    } catch (e) {
-      alert('問題JSONを読み込めませんでした: ' + e);
-    }
-  })();
-
   // 受験設定
   const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
   const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
