@@ -186,7 +186,7 @@
     }
     return list;
   }
-
+   (async () => {
     // === Autoload CSV on page load (tries both names) ===
     const tryFiles = ['questions.csv', 'question.csv'];
     let csvText = '';
@@ -274,6 +274,10 @@
     $('#btn-start').addEventListener('click', ()=>{
       if(!selectedGrade) return;
       prepareBank(selectedGrade);
+      if(!bank.length){
+      alert('この級の問題がありません。CSVのgrade列(1〜4)やファイル名を確認してください。');
+      return;
+      }
       start();
     });
   }
