@@ -220,8 +220,9 @@
   // 受験設定
   const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
   const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
-  const SHUFFLE_CHOICES = true; // 選択肢シャッフル
-  const QUESTIONS_PER_EXAM = 6; // 一回の出題数（該当級からランダム抽出）。0なら全問
+  const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
+  const SHUFFLE_CHOICES = false; // 選択肢シャッフル
+  const QUESTIONS_PER_EXAM = 0; // 一回の出題数（該当級からランダム抽出）。0なら全問
 
   // ==== 2) 以下は基本ロジック ================================================
   const $ = (sel) => document.querySelector(sel);
@@ -235,8 +236,17 @@
   let current = 0;
   let countdownId = null;
   let startedAt = null;
+  let choiceOrder = {}; // 各問題の選択肢並びを1回だけ決めて保持
 
   function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+
+  function persist(){
+    const payload = { selectedGrade, order, answers, current, startedAt, bankIds: bank.map(q=>q.id) };
+    localStorage.setItem(stateKey, JSON.stringify(payload));
+  }
+  function restore(){ const raw = localStorage.getItem(stateKey); if(!raw) return null; try{ return JSON.parse(raw); }catch{ return null } }
+  function clearState(){ localStorage.removeItem(stateKey); }
+
 
   function persist(){
     const payload = { selectedGrade, order, answers, current, startedAt, bankIds: bank.map(q=>q.id) };
