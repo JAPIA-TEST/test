@@ -344,9 +344,20 @@
     const chosen = Number.isInteger(answers[data.id]) ? answers[data.id] : null;
 
     const html = `
+    const qi = order[current];
+    const data = bank[qi];
+    let ord = choiceOrder[data.id];
+    if(!ord){
+      const base = data.choices.map((_,i)=>i);
+      ord = SHUFFLE_CHOICES ? shuffle(base) : base;
+      choiceOrder[data.id] = ord;
+    }
+    const choices = ord.map(i => ({ t: data.choices[i], i }));
+    const chosen = Number.isInteger(answers[data.id]) ? answers[data.id] : null;
+
+    const html = `
       <div class="muted small">${selectedGrade}級・問題 ${current+1} / ${bank.length} ・ タグ: ${(data.tags||[]).join(', ')}</div>
       <div class="qtext">${data.q}</div>
-      ${Array.isArray(data.images) && data.images.length ? `<div class="qimg">${data.images.map(u=>`<img src="${u}" alt="image for ${data.id}">`).join("")}</div>` : ""}
       <div class="choices">
         ${choices.map((c)=>`<div class="choice" role="radio" aria-checked="${chosen===c.i}" data-index="${c.i}">${c.t.replace(/</g,'&lt;')}</div>`).join('')}
       </div>
