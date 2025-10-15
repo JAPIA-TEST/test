@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ja">
 <head>
@@ -207,7 +208,7 @@
     }catch(e){ console.warn('updateMenuCounts err', e); }
   }
   updateMenuCounts();
-    
+
    (async () => {
     // === Autoload CSV on page load (tries both names) ===
     const tryFiles = ['questions.csv', 'question.csv'];
@@ -477,20 +478,11 @@
 
       // 進行状態をリセットしてメニューに戻す
       clearState();
-       $('#menu').classList.remove('hidden');
-    $('#intro').classList.add('hidden');
-    $('#quiz').classList.add('hidden');
-    $('#summary').classList.add('hidden');
-    $('#grade-label').textContent = '—級';
-    $('#progress').value = 0; $('#progress-label').textContent = '0';
-    $('#pos').textContent = '0'; $('#total').textContent = '0';
-  });
-  $('#btn-reset').addEventListener('click', ()=>{
-    if(confirm('保存された進捗を消して最初からやり直しますか？')){
-      clearState();
-      location.reload();
-        updateMenuCounts();
-          updateMenuCounts();
+      document.getElementById('menu')?.classList.remove('hidden');
+      document.getElementById('intro')?.classList.add('hidden');
+      document.getElementById('quiz')?.classList.add('hidden');
+      document.getElementById('summary')?.classList.add('hidden');
+      document.getElementById('total-count').textContent = String(imported.length);
     }catch(err){
       console.error(err);
       alert('CSVの読み込みでエラーが発生しました: '+ err);
