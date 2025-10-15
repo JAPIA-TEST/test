@@ -27,8 +27,6 @@
     .small{font-size:.9rem}
     .hidden{display:none}
     .qtext{font-size:1.1rem; font-weight:600}
-    .qimg{margin-top:12px; display:grid; gap:12px;}
-    .qimg img{max-width:100%; height:auto; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,.06);}
     .grid2{display:grid; grid-template-columns:1.2fr .8fr; gap:var(--gap)}
     @media (max-width:780px){.grid2{grid-template-columns:1fr}}
 
@@ -79,9 +77,7 @@
       </div>
       <div class="row" style="margin-top:16px">
   <button class="btn" id="btn-start" disabled>この級で受験を開始</button>
-  
-
-  <!-- ▼ 追加：CSVインポート -->
+<!-- ▼ 追加：CSVインポート -->
   <input id="file-questions" type="file" accept=".csv,text/csv" style="display:none">
   <button class="btn ghost" id="btn-import" title="Excelから書き出したCSVを読み込む">問題CSVを読み込む</button>
   </div>
@@ -112,7 +108,6 @@
     <section class="card hidden" id="summary">
       <h2>結果</h2>
       <p class="result">級: <strong id="result-grade"></strong> ／ スコア: <strong id="score"></strong> / <span id="score-total"></span>（正答率 <strong id="percent"></strong>%）</p>
-      <p class="small"><strong>判定:</strong> <span id="passfail">—</span>（合格ライン: <span id="passline">—</span>%）</p>
       <div id="review"></div>
       <div class="row">
         <button class="btn" id="btn-retry">メニューへ戻る</button>
@@ -135,55 +130,6 @@
   let questions = [];        // 既存コードが参照する配列
   window.questions = questions;
 
-  // ===== CSV/JSON オートロード =====
-  (async function autoLoadQuestions(){
-    try {
-      const csvRes = await fetch('questions.csv', {cache: 'no-store'});
-      if (csvRes.ok) {
-        const text = await csvRes.text();
-        const rows = parseCSV(text);
-        const imported = rowsToQuestions(rows);
-        if (imported.length) {
-          questions.splice(0, questions.length, ...imported);
-          window.questions = questions;
-          console.log(`[autoload] CSVから ${imported.length} 問を読み込みました`);
-          document.getElementById('total-count').textContent = String(imported.length);
-        updateMenuCounts();
-          updateMenuCounts();
-          return;
-        }
-      }
-    } catch(e) { console.warn('[autoload] questions.csv 読み込み失敗:', e); }
-    try {
-      const jsonRes = await fetch('questions.json', {cache: 'no-store'});
-      if (jsonRes.ok) {
-        const data = await jsonRes.json();
-        if (Array.isArray(data) && data.length) {
-          questions.splice(0, questions.length, ...data);
-          window.questions = questions;
-          console.log(`[autoload] JSONから ${data.length} 問を読み込みました`);
-          document.getElementById('total-count').textContent = String(data.length);
-          updateMenuCounts();
-          return;
-        }
-      }
-    } catch(e) { console.warn('[autoload] questions.json 読み込み失敗:', e); }
-    const embedded = document.getElementById('embedded-csv');
-    if (embedded && embedded.textContent.trim()) {
-      const rows = parseCSV(embedded.textContent);
-      const imported = rowsToQuestions(rows);
-      if (imported.length) {
-        questions.splice(0, questions.length, ...imported);
-        window.questions = questions;
-        console.log(`[autoload] 埋め込みCSVから ${imported.length} 問を読み込みました`);
-        document.getElementById('total-count').textContent = String(imported.length);
-        updateMenuCounts();
-          updateMenuCounts();
-      }
-    }
-  })();
-
-
   (async () => {
   try {
       const res = await fetch('questions.json', {cache: 'no-store'});
@@ -199,18 +145,8 @@
   // 受験設定
   const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
   const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
-  const SHUFFLE_CHOICES = false; // 選択肢シャッフル
-  const QUESTIONS_PER_EXAM = 0; 
-  const USE_ALL_QUESTIONS = true;
-  // ▼ 級ごとの設定（出題時間・合格ライン %）
-  const PER_GRADE = {
-    1: { minutes: 15, pass: 80 },
-    2: { minutes: 12, pass: 80 },
-    3: { minutes: 10, pass: 70 },
-    4: { minutes: 8,  pass: 70 }
-  };
-  // ランタイムで変更可能な制限時間（分）
-  let examMinutes = EXAM_MINUTES; // 該当級の全問題を出題// 一回の出題数（該当級からランダム抽出）。0なら全問
+  const SHUFFLE_CHOICES = true; // 選択肢シャッフル
+  const QUESTIONS_PER_EXAM = 6; // 一回の出題数（該当級からランダム抽出）。0なら全問
 
   // ==== 2) 以下は基本ロジック ================================================
   const $ = (sel) => document.querySelector(sel);
@@ -224,7 +160,6 @@
   let current = 0;
   let countdownId = null;
   let startedAt = null;
-  let choiceOrder = {}; // 各問題の選択肢並びを1回だけ決めて保持
 
   function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
 
@@ -265,13 +200,7 @@
     $('#grade-label').textContent = `${grade}級`;
     $('#total-count').textContent = String(bank.length);
     $('#total').textContent = String(bank.length);
-    // 級ごとの制限時間を適用（定義があれば優先）
-    if (PER_GRADE[grade] && typeof PER_GRADE[grade].minutes === 'number') {
-      examMinutes = PER_GRADE[grade].minutes;
-    } else {
-      examMinutes = EXAM_MINUTES;
-    }
-    $('#limit-min').textContent = examMinutes ? examMinutes : 'なし';
+    $('#limit-min').textContent = EXAM_MINUTES ? EXAM_MINUTES : 'なし';
   }
 
   function init(){
@@ -296,7 +225,7 @@
     $('#intro').classList.remove('hidden');
     $('#quiz').classList.remove('hidden');
     if(!startedAt) startedAt = Date.now();
-    if(examMinutes>0 && !countdownId) startCountdown(examMinutes*60);
+    if(EXAM_MINUTES>0 && !countdownId) startCountdown(EXAM_MINUTES*60);
     renderCurrent();
     persist();
   }
@@ -317,13 +246,7 @@
   function renderCurrent(){
     const qi = order[current];
     const data = bank[qi];
-    let ord = choiceOrder[data.id];
-    if(!ord){
-      const base = data.choices.map((_,i)=>i);
-      ord = SHUFFLE_CHOICES ? shuffle(base) : base;
-      choiceOrder[data.id] = ord;
-    }
-    const choices = ord.map(i => ({ t: data.choices[i], i }));
+    const choices = SHUFFLE_CHOICES ? shuffle(data.choices.map((c,i)=>({t:c, i}))) : data.choices.map((c,i)=>({t:c, i}));
     const chosen = Number.isInteger(answers[data.id]) ? answers[data.id] : null;
 
     const html = `
@@ -343,18 +266,13 @@
     $('#quiz').innerHTML = html;
 
     $$('#quiz .choice').forEach(el=>{
-      el.addEventListener('click', ()=>{
+      el.addEventListener('click',()=>{
         answers[data.id] = Number(el.dataset.index);
-        // 再描画せず選択状態のみ更新（シャッフル再実行を防ぐ）
-        $$('#quiz .choice').forEach(c=>{
-          const checked = Number(c.dataset.index) === answers[data.id];
-          c.setAttribute('aria-checked', String(checked));
-        });
-        updateProgress();
-        persist();
+        persist(); renderCurrent(); updateProgress();
       });
     });
-$('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); renderCurrent(); updateProgress(); persist(); });
+
+    $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); renderCurrent(); updateProgress(); persist(); });
     $('#btn-next').addEventListener('click', ()=>{ if(current===bank.length-1) finish(); else { current++; renderCurrent(); updateProgress(); persist(); } });
     $('#btn-review').addEventListener('click', showReview);
   }
@@ -383,11 +301,6 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
     $('#score').textContent = String(score);
     $('#score-total').textContent = String(bank.length);
     $('#percent').textContent = String(Math.round(100*score/bank.length));
-    // 合否判定
-    let passLine = (PER_GRADE[selectedGrade] && typeof PER_GRADE[selectedGrade].pass==='number') ? PER_GRADE[selectedGrade].pass : 0;
-    const pct = Math.round(100*score/bank.length);
-    $('#passline').textContent = String(passLine);
-    $('#passfail').textContent = (pct >= passLine) ? '合格' : '不合格';
 
     const reviewHtml = out.map(r=>`<details style="margin:8px 0"><summary>${r.no}. ${r.question} — <strong>${r.result}</strong></summary><div class="small"><div>あなた: ${r.your}</div><div>正解: ${r.correct}</div>${r.exp?`<div>解説: ${r.exp}</div>`:''}</div></details>`).join('');
     $('#review').innerHTML = reviewHtml;
@@ -395,6 +308,11 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
   }
 
   function showReview(){ $('#summary').classList.remove('hidden'); window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'}); }
+
+  function exportJSON(){
+    const blob = new Blob([JSON.stringify(questions, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'questions.sample.json'; a.click();
+  }
 
   function exportCSV(){
     const rows = [ ['no','grade','id','question','your','correct','result','exp'] ];
@@ -410,27 +328,6 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
 
   // Buttons
   // --- CSV 読み込み実装（UTF-8/Shift_JIS対応・ダブルクォート対応） ---
-
-  // Handlers: メニューへ戻る / リセット
-  $('#btn-retry').addEventListener('click', ()=>{
-    if(countdownId){ clearInterval(countdownId); countdownId=null; }
-    selectedGrade = null; bank = []; order = []; answers = {}; current = 0; startedAt = null; choiceOrder = {};
-    clearState();
-    $('#menu').classList.remove('hidden');
-    $('#intro').classList.add('hidden');
-    $('#quiz').classList.add('hidden');
-    $('#summary').classList.add('hidden');
-    $('#grade-label').textContent = '—級';
-    $('#progress').value = 0; $('#progress-label').textContent = '0';
-    $('#pos').textContent = '0'; $('#total').textContent = '0';
-  });
-  $('#btn-reset').addEventListener('click', ()=>{
-    if(confirm('保存された進捗を消して最初からやり直しますか？')){
-      clearState();
-      location.reload();
-    }
-  });
-
 (function setupCsvImport(){
   const btnImport = document.getElementById('btn-import');
   const fileInput = document.getElementById('file-questions');
@@ -461,8 +358,6 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
       document.getElementById('quiz')?.classList.add('hidden');
       document.getElementById('summary')?.classList.add('hidden');
       document.getElementById('total-count').textContent = String(imported.length);
-        updateMenuCounts();
-          updateMenuCounts();
     }catch(err){
       console.error(err);
       alert('CSVの読み込みでエラーが発生しました: '+ err);
@@ -516,7 +411,7 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
       id: idx('id'), grade: idx('grade'), q: idx('q'),
       c1: idx('choice1'), c2: idx('choice2'), c3: idx('choice3'), c4: idx('choice4'),
       c5: idx('choice5'), c6: idx('choice6'), answer: idx('answer'), exp: idx('exp'), tags: idx('tags')
-    , img: idx('img'), images: idx('images') };
+    };
     const hasHeader = col.q !== -1 && (col.c1 !== -1 || col.c2 !== -1);
     const start = hasHeader ? 1 : 0;
 
@@ -539,46 +434,13 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
       const exp = get(col.exp);
       const tags = (get(col.tags)||'').replace('／','/').replace('|','/').split('/').map(s=>s.trim()).filter(Boolean);
 
-      const imgsField = get(col.images);
-      const imgField = get(col.img);
-      const images = imgsField ? imgsField.split('|').map(s=>s.trim()).filter(Boolean) : (imgField ? [imgField] : []);
-      list.push({ id: get(col.id)||`q${r}`, grade, q, choices, answer: ansIdx, exp, tags, images });
+      list.push({ id: get(col.id)||`q${r}`, grade, q, choices, answer: ansIdx, exp, tags });
     }
     return list;
   }
 })();
 
-  
-  // メニューの各級の問題数を表示
-  function updateMenuCounts(){
-    try{
-      const counts = {1:0,2:0,3:0,4:0};
-      questions.forEach(q=>{ if(counts[q.grade] != null) counts[q.grade]++; });
-      [1,2,3,4].forEach(g=>{
-        const card = document.querySelector(`.grade[data-grade="${g}"]`);
-        if(!card) return;
-        let line = card.querySelector('.grade-count-line');
-        if(!line){
-          line = document.createElement('div');
-          line.className = 'small muted grade-count-line';
-          card.appendChild(line);
-        }
-        line.textContent = `登録問題数: ${counts[g]}問`;
-      });
-    }catch(e){ console.warn('updateMenuCounts err', e); }
-  }
-  updateMenuCounts();
-
   init();
   </script>
-
-  <!-- 任意：ここにCSV本文を埋め込むと、questions.csv / questions.json が無い場合に自動読込します -->
-  <!--
-  <script id="embedded-csv" type="text/plain">
-id,grade,q,choice1,choice2,choice3,choice4,answer,exp,tags,img
-q4-1,4,"HTMLで文書のタイトルを入れる要素は？","<title>","<head>","<meta>","<header>",1,"<title>はブラウザのタブに表示されます。","HTML|入門","images/sample1.jpg"
-q3-1,3,"JavaScriptで定数を宣言する方法は？","var","let","const","define",3,"再代入不可の束縛には const を使います。","JS|基礎",""
-  </script>
-  -->
 </body>
 </html>
