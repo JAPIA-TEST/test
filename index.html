@@ -186,6 +186,28 @@
     }
     return list;
   }
+    })();
+
+     // メニューの各級の問題数を表示
+  function updateMenuCounts(){
+    try{
+      const counts = {1:0,2:0,3:0,4:0};
+      questions.forEach(q=>{ if(counts[q.grade] != null) counts[q.grade]++; });
+      [1,2,3,4].forEach(g=>{
+        const card = document.querySelector(`.grade[data-grade="${g}"]`);
+        if(!card) return;
+        let line = card.querySelector('.grade-count-line');
+        if(!line){
+          line = document.createElement('div');
+          line.className = 'small muted grade-count-line';
+          card.appendChild(line);
+        }
+        line.textContent = `登録問題数: ${counts[g]}問`;
+      });
+    }catch(e){ console.warn('updateMenuCounts err', e); }
+  }
+  updateMenuCounts();
+
    (async () => {
     // === Autoload CSV on page load (tries both names) ===
     const tryFiles = ['questions.csv', 'question.csv'];
