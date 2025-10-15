@@ -220,9 +220,18 @@
   // 受験設定
   const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
   const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
-  const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
   const SHUFFLE_CHOICES = false; // 選択肢シャッフル
   const QUESTIONS_PER_EXAM = 0; // 一回の出題数（該当級からランダム抽出）。0なら全問
+  const USE_ALL_QUESTIONS = true;
+  // ▼ 級ごとの設定（出題時間・合格ライン %）
+  const PER_GRADE = {
+    1: { minutes: 15, pass: 80 },
+    2: { minutes: 12, pass: 80 },
+    3: { minutes: 10, pass: 70 },
+    4: { minutes: 8,  pass: 70 }
+  };
+  // ランタイムで変更可能な制限時間（分）
+  let examMinutes = EXAM_MINUTES; // 該当級の全問題を出題// 一回の出題数（該当級からランダム抽出）。0なら全問
 
   // ==== 2) 以下は基本ロジック ================================================
   const $ = (sel) => document.querySelector(sel);
