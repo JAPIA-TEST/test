@@ -207,7 +207,7 @@
     }catch(e){ console.warn('updateMenuCounts err', e); }
   }
   updateMenuCounts();
-    
+
    (async () => {
     // === Autoload CSV on page load (tries both names) ===
     const tryFiles = ['questions.csv', 'question.csv'];
@@ -451,28 +451,7 @@
   }
 
   // Buttons
- // --- CSV 読み込み実装（UTF-8/Shift_JIS対応・ダブルクォート対応） ---
-
-  // Handlers: メニューへ戻る / リセット
-  $('#btn-retry').addEventListener('click', ()=>{
-    if(countdownId){ clearInterval(countdownId); countdownId=null; }
-    selectedGrade = null; bank = []; order = []; answers = {}; current = 0; startedAt = null; choiceOrder = {};
-    clearState();
-    $('#menu').classList.remove('hidden');
-    $('#intro').classList.add('hidden');
-    $('#quiz').classList.add('hidden');
-    $('#summary').classList.add('hidden');
-    $('#grade-label').textContent = '—級';
-    $('#progress').value = 0; $('#progress-label').textContent = '0';
-    $('#pos').textContent = '0'; $('#total').textContent = '0';
-  });
-  $('#btn-reset').addEventListener('click', ()=>{
-    if(confirm('保存された進捗を消して最初からやり直しますか？')){
-      clearState();
-      location.reload();
-    }
-  });
-
+  // --- CSV 読み込み実装（UTF-8/Shift_JIS対応・ダブルクォート対応） ---
 (function setupCsvImport(){
   const btnImport = document.getElementById('btn-import');
   const fileInput = document.getElementById('file-questions');
@@ -503,6 +482,8 @@
       document.getElementById('quiz')?.classList.add('hidden');
       document.getElementById('summary')?.classList.add('hidden');
       document.getElementById('total-count').textContent = String(imported.length);
+        updateMenuCounts();
+          updateMenuCounts();
     }catch(err){
       console.error(err);
       alert('CSVの読み込みでエラーが発生しました: '+ err);
@@ -510,7 +491,6 @@
       e.target.value=''; // 同じファイルの再選択を許可
     }
   });
-
 
   // --- helpers ---
   async function readAsTextWithFallback(file){
