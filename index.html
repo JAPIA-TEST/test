@@ -79,7 +79,7 @@
       </div>
       <div class="row" style="margin-top:16px">
   <button class="btn" id="btn-start" disabled>この級で受験を開始</button>
-  <button class="btn ghost" id="btn-export">問題JSONをダウンロード</button>
+  
 
   <!-- ▼ 追加：CSVインポート -->
   <input id="file-questions" type="file" accept=".csv,text/csv" style="display:none">
@@ -395,11 +395,6 @@ $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); re
   }
 
   function showReview(){ $('#summary').classList.remove('hidden'); window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'}); }
-
-  function exportJSON(){
-    const blob = new Blob([JSON.stringify(questions, null, 2)], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'questions.sample.json'; a.click();
-  }
 
   function exportCSV(){
     const rows = [ ['no','grade','id','question','your','correct','result','exp'] ];
