@@ -482,6 +482,8 @@
       document.getElementById('quiz')?.classList.add('hidden');
       document.getElementById('summary')?.classList.add('hidden');
       document.getElementById('total-count').textContent = String(imported.length);
+        updateMenuCounts();
+          updateMenuCounts();
     }catch(err){
       console.error(err);
       alert('CSVの読み込みでエラーが発生しました: '+ err);
