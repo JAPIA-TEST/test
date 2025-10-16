@@ -228,6 +228,7 @@
         if (totalEl) totalEl.textContent = String(imported.length);
         // CSVが入っていることが分かるようにコンソールへ
         console.log(`[autoload] CSV loaded: ${imported.length} questions`);
+        dataReady = true; recountByGrade(); setStartEnabled(); updateMenuCounts && updateMenuCounts();
       }
     } else {
       console.warn('[autoload] CSV not found (questions.csv / question.csv)');
@@ -264,6 +265,26 @@
   let countdownId = null;
   let startedAt = null;
   let choiceOrder = {}; // 各問題の選択肢並びを1回だけ決めて保持
+  // --- 追加: ロード完了と級別件数・開始ボタン制御 ---
+  let dataReady = false;
+  let countsByGrade = {1:0,2:0,3:0,4:0};
+
+  function recountByGrade() {
+    countsByGrade = {1:0,2:0,3:0,4:0};
+    (window.questions || []).forEach(q => {
+      const g = (q && (q.grade|0)) || 0;
+      if (g>=1 && g<=4) countsByGrade[g]++;
+    });
+  }
+
+  function setStartEnabled() {
+    const btn = document.getElementById('btn-start');
+    if (!btn) return;
+    const g = window.selectedGrade;
+    const ok = !!dataReady && !!g && countsByGrade[g] > 0;
+    btn.disabled = !ok;
+  }
+
 
   function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
 
@@ -281,7 +302,7 @@
         $$('#grade-list .grade').forEach(c=>c.dataset.active = 'false');
         card.dataset.active = 'true';
         selectedGrade = Number(card.dataset.grade);
-        $('#btn-start').disabled = false;
+        setStartEnabled();
       });
     });
     $('#btn-start').addEventListener('click', ()=>{
@@ -329,6 +350,12 @@
   }
 
   function start(){
+    // ロード未完了・未選択・該当級0件のときは開始しない
+    if (!dataReady) { alert('問題データを読み込み中です。数秒後にもう一度お試しください。'); return; }
+    if (!selectedGrade) { alert('級を選んでください。'); return; }
+    recountByGrade();
+    if (!countsByGrade[selectedGrade]) { alert(`${selectedGrade}級の問題が見つかりません。CSVの grade 列（1〜4）をご確認ください。`); return; }
+
     $('#menu').classList.add('hidden');
     $('#intro').classList.remove('hidden');
     $('#quiz').classList.remove('hidden');
@@ -473,6 +500,7 @@
       document.getElementById('quiz')?.classList.add('hidden');
       document.getElementById('summary')?.classList.add('hidden');
       document.getElementById('total-count').textContent = String(imported.length);
+      dataReady = true; recountByGrade(); setStartEnabled(); updateMenuCounts && updateMenuCounts();
     }catch(err){
       console.error(err);
       alert('CSVの読み込みでエラーが発生しました: '+ err);
