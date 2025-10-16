@@ -79,7 +79,7 @@
         </div>
       </div>
       <div class="row" style="margin-top:16px">
-  <button class="btn" id="btn-start" disabled>この級で受験を開始</button>
+  <button class="btn" id="btn-start">この級で受験を開始</button>
 <!-- ▼ 追加：CSVインポート -->
   <input id="file-questions" type="file" accept=".csv,text/csv" style="display:none">
   <button class="btn ghost" id="btn-import" title="Excelから書き出したCSVを読み込む">問題CSVを読み込む</button>
@@ -277,13 +277,12 @@
     });
   }
 
-  function setStartEnabled() {
-    const btn = document.getElementById('btn-start');
-    if (!btn) return;
-    const g = window.selectedGrade;
-    const ok = !!dataReady && !!g && countsByGrade[g] > 0;
-    btn.disabled = !ok;
-  }
+  function setStartEnabled(){
+  const btn = document.getElementById('btn-start');
+  if (!btn) return;
+  // 運用方針: ボタンは常に押せる。判定は start() 内で実施。
+  btn.disabled = false;
+}
 
 
   function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
@@ -350,21 +349,30 @@
   }
 
   function start(){
-    // ロード未完了・未選択・該当級0件のときは開始しない
-    if (!dataReady) { alert('問題データを読み込み中です。数秒後にもう一度お試しください。'); return; }
-    if (!selectedGrade) { alert('級を選んでください。'); return; }
-    recountByGrade();
-    if (!countsByGrade[selectedGrade]) { alert(`${selectedGrade}級の問題が見つかりません。CSVの grade 列（1〜4）をご確認ください。`); return; }
-  const _btn = document.getElementById('btn-start'); if(_btn && _btn.disabled) _btn.disabled = false;
-
-    $('#menu').classList.add('hidden');
-    $('#intro').classList.remove('hidden');
-    $('#quiz').classList.remove('hidden');
-    if(!startedAt) startedAt = Date.now();
-    if(EXAM_MINUTES>0 && !countdownId) startCountdown(EXAM_MINUTES*60);
-    renderCurrent();
-    persist();
+  // 押せるが、条件未満ならここで弾く（アラートのみ）
+  if (typeof dataReady !== 'undefined' && !dataReady) {
+    alert('問題データを読み込み中です。数秒後にもう一度お試しください。');
+    return;
   }
+  if (typeof selectedGrade === 'undefined' || !selectedGrade) {
+    alert('級を選んでください。');
+    return;
+  }
+  if (typeof recountByGrade === 'function') recountByGrade();
+  if (typeof countsByGrade !== 'undefined' && !countsByGrade[selectedGrade]) {
+    alert(`${selectedGrade}級の問題が見つかりません。CSVの grade 列（1〜4）をご確認ください。`);
+    return;
+  }
+
+  // ここから通常開始
+  $('#menu').classList.add('hidden');
+  $('#intro').classList.remove('hidden');
+  $('#quiz').classList.remove('hidden');
+  if(!startedAt) startedAt = Date.now();
+  if(typeof EXAM_MINUTES !== 'undefined' && EXAM_MINUTES>0 && !countdownId) startCountdown(EXAM_MINUTES*60);
+  renderCurrent();
+  persist();
+}
 
   function startCountdown(totalSec){
     function tick(){
