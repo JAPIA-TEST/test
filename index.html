@@ -209,7 +209,7 @@
 
    (async () => {
     // === Autoload CSV on page load (tries both names) ===
-    const tryFiles = ['questions.csv', 'question.csv'];
+    const tryFiles = ['questions.csv'];
     let csvText = '';
     for (const f of tryFiles) {
       try {
@@ -230,7 +230,7 @@
         console.log(`[autoload] CSV loaded: ${imported.length} questions`);
       }
     } else {
-      console.warn('[autoload] CSV not found (questions.csv / question.csv)');
+      console.warn('[autoload] CSV not found (questions.csv)');
     }
 
   
