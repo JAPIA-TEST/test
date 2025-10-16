@@ -187,8 +187,6 @@
     }
     return list;
   }
-    })();
-
      // メニューの各級の問題数を表示
   function updateMenuCounts(){
     try{
@@ -268,14 +266,6 @@
   let choiceOrder = {}; // 各問題の選択肢並びを1回だけ決めて保持
 
   function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
-
-  function persist(){
-    const payload = { selectedGrade, order, answers, current, startedAt, bankIds: bank.map(q=>q.id) };
-    localStorage.setItem(stateKey, JSON.stringify(payload));
-  }
-  function restore(){ const raw = localStorage.getItem(stateKey); if(!raw) return null; try{ return JSON.parse(raw); }catch{ return null } }
-  function clearState(){ localStorage.removeItem(stateKey); }
-
 
   function persist(){
     const payload = { selectedGrade, order, answers, current, startedAt, bankIds: bank.map(q=>q.id) };
