@@ -1,0 +1,586 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>あなたの検定</title>
+  <style>
+    :root{--gap:16px;--radius:16px}
+    body{font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Apple Color Emoji", "Segoe UI Emoji"; margin:0; background:#f7f7fb; color:#222}
+    .wrap{max-width:980px; margin:0 auto; padding:24px}
+    header{display:flex; gap:var(--gap); align-items:center; justify-content:space-between}
+    h1{font-size:1.6rem; margin:.5rem 0}
+    .card{background:#fff; border-radius:var(--radius); box-shadow:0 10px 25px rgba(0,0,0,.05); padding:20px; margin:20px 0}
+    .muted{color:#666; font-size:.95rem}
+    .row{display:flex; gap:var(--gap); align-items:center; flex-wrap:wrap}
+    .btn{appearance:none; border:0; background:#222; color:#fff; padding:12px 16px; border-radius:12px; cursor:pointer; font-weight:600}
+    .btn.secondary{background:#e9e9ef; color:#222}
+    .btn.ghost{background:transparent; border:2px solid #ddd; color:#222}
+    .btn:disabled{opacity:.5; cursor:not-allowed}
+    .choices{display:grid; grid-template-columns:1fr; gap:10px; margin-top:12px}
+    .choice{border:2px solid #e6e6ee; border-radius:12px; padding:12px; background:#fafafd; cursor:pointer}
+    .choice[aria-checked="true"]{border-color:#222; background:#eef2ff}
+    progress{width:100%; height:14px}
+    .footer{display:flex; justify-content:space-between; gap:var(--gap); align-items:center; margin-top:12px}
+    .badge{background:#eef2ff; color:#223; padding:6px 10px; border-radius:999px; font-weight:600}
+    .result{font-size:1.2rem}
+    .small{font-size:.9rem}
+    .hidden{display:none}
+    .qtext{font-size:1.1rem; font-weight:600}
+    .qimg{margin-top:12px; display:grid; gap:12px;}
+    .qimg img{max-width:100%; height:auto; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,.06);}
+    .grid2{display:grid; grid-template-columns:1.2fr .8fr; gap:var(--gap)}
+    @media (max-width:780px){.grid2{grid-template-columns:1fr}}
+
+    /* スタートメニュー */
+    .grid4{display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--gap)}
+    @media (max-width:780px){.grid4{grid-template-columns:1fr 1fr}}
+    .grade{border:2px solid #e6e6ee; border-radius:16px; padding:16px; background:#fff; cursor:pointer; transition:transform .06s ease}
+    .grade:hover{transform:translateY(-2px)}
+    .grade[data-active="true"]{border-color:#222; box-shadow:0 6px 16px rgba(0,0,0,.06)}
+    .grade h3{margin:.2rem 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>あなたの検定</h1>
+        <div class="muted">一般向け／1級〜4級を選んで受験できるシンプルなWeb検定</div>
+      </div>
+      <button class="btn secondary" id="btn-reset" title="保存された進捗を消して最初から">リセット</button>
+    </header>
+
+    <!-- スタートメニュー（級の選択） -->
+    <section class="card" id="menu">
+      <h2>級を選んでスタート</h2>
+      <p class="small muted">「1級（最難）〜4級（入門）」。選んだ級の問題だけが出題されます。</p>
+      <div class="grid4" id="grade-list">
+        <div class="grade" data-grade="1">
+          <span class="badge">1級</span>
+          <h3>エキスパート</h3>
+          <div class="small muted">応用・難問中心</div>
+        </div>
+        <div class="grade" data-grade="2">
+          <span class="badge">2級</span>
+          <h3>上級</h3>
+          <div class="small muted">標準＋やや難</div>
+        </div>
+        <div class="grade" data-grade="3">
+          <span class="badge">3級</span>
+          <h3>中級</h3>
+          <div class="small muted">基礎の確認</div>
+        </div>
+        <div class="grade" data-grade="4">
+          <span class="badge">4級</span>
+          <h3>入門</h3>
+          <div class="small muted">初めての方に</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:16px">
+  <button class="btn" id="btn-start" disabled>この級で受験を開始</button>
+<!-- ▼ 追加：CSVインポート -->
+  <input id="file-questions" type="file" accept=".csv,text/csv" style="display:none">
+  <button class="btn ghost" id="btn-import" title="Excelから書き出したCSVを読み込む">問題CSVを読み込む</button>
+  </div>
+    </section>
+
+    <!-- 試験中のインジケータ -->
+    <section class="card hidden" id="intro">
+      <div class="grid2">
+        <div>
+          <p>選択中: <strong id="grade-label">—級</strong> ／ 全<span id="total-count">0</span>問・制限時間 <span id="limit-min">—</span> 分。</p>
+          <p class="small muted">Tips: <mark>questions</mark> の <code>grade</code> を 1〜4 に設定してください。</p>
+        </div>
+        <div>
+          <div class="card" style="margin:0">
+            <div class="row" style="justify-content:space-between">
+              <span class="badge">進捗</span>
+              <span class="muted small"><span id="progress-label">0</span>%</span>
+            </div>
+            <progress id="progress" max="100" value="0"></progress>
+            <div class="footer small muted"><span>残り時間: <strong id="time-left">--:--</strong></span><span>現在: <span id="pos">0</span>/<span id="total">0</span></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hidden" id="quiz"></section>
+
+    <section class="card hidden" id="summary">
+      <h2>結果</h2>
+      <p class="result">級: <strong id="result-grade"></strong> ／ スコア: <strong id="score"></strong> / <span id="score-total"></span>（正答率 <strong id="percent"></strong>%）</p>
+      <div id="review"></div>
+      <div class="row">
+        <button class="btn" id="btn-retry">メニューへ戻る</button>
+        <button class="btn secondary" id="btn-save">結果をCSVで保存</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+  // ==== 1) ここを書き換えるだけでオリジナル検定になります ======================
+  /** 問題オブジェクトの仕様
+   * id: 一意なID文字列
+   * q: 質問文（HTML可）
+   * choices: 選択肢配列（文字列）
+   * answer: 正解のインデックス（0始まり）
+   * exp: 解説（任意）
+   * tags: カテゴリ（任意）
+   * grade: 1|2|3|4 ・・・級（1が最難、4が入門）
+   */
+  let questions = [];        // 既存コードが参照する配列
+  window.questions = questions;
+
+  
+  // === Global CSV helpers (for autoload & manual import) ===
+  function parseCSV(str){
+    const out=[]; let row=[], cur='', q=false;
+    for(let i=0;i<str.length;i++){
+      const ch=str[i], nx=str[i+1];
+      if(q){
+        if(ch === '"' && nx === '"'){ cur += '"'; i++; }
+        else if(ch === '"'){ q=false; }
+        else { cur += ch; }
+      }else{
+        if(ch === '"'){ q=true; }
+        else if(ch === ','){ row.push(cur); cur=''; }
+        else if(ch === '\n'){ row.push(cur); out.push(row); row=[]; cur=''; }
+        else if(ch === '\r'){ /* ignore */ }
+        else { cur += ch; }
+      }
+    }
+    row.push(cur); out.push(row);
+    return out.filter(r => r.some(c => String(c).trim() !== ''));
+  }
+  function rowsToQuestions(rows){
+    if(!rows.length) return [];
+    const header = rows[0].map(h=>String(h).trim());
+    const idx = (name)=> header.findIndex(h=> h.toLowerCase()===name.toLowerCase());
+    const col = {
+      id: idx('id'), grade: idx('grade'), q: idx('q'),
+      c1: idx('choice1'), c2: idx('choice2'), c3: idx('choice3'), c4: idx('choice4'),
+      c5: idx('choice5'), c6: idx('choice6'), answer: idx('answer'), exp: idx('exp'), tags: idx('tags'), img: idx('img'), images: idx('images')
+    };
+    const hasHeader = col.q !== -1 && (col.c1 !== -1 || col.c2 !== -1);
+    const start = hasHeader ? 1 : 0;
+
+    const list=[];
+    for(let r=start; r<rows.length; r++){
+      const row = rows[r];
+      const get = (i)=> (i>=0 && i<row.length) ? String(row[i]||'').trim() : '';
+      const q = get(col.q);
+      if(!q) continue;
+      const choices = [get(col.c1), get(col.c2), get(col.c3), get(col.c4), get(col.c5), get(col.c6)].filter(Boolean);
+      if(choices.length < 2) continue;
+      const ansRaw = get(col.answer) || '1';
+      const ansIdx = /^\d+$/.test(ansRaw) ? Math.max(0, parseInt(ansRaw,10)-1) : 0;
+      const gradeRaw = get(col.grade) || '4';
+      const grade = /^\d+$/.test(gradeRaw) ? parseInt(gradeRaw,10) : 4;
+      const exp = get(col.exp);
+      const tags = (get(col.tags)||'').replace('／','/').replace('|','/').split('/').map(s=>s.trim()).filter(Boolean);
+      const imgsField = get(col.images);
+      const imgField = get(col.img);
+      const images = imgsField ? imgsField.split('|').map(s=>s.trim()).filter(Boolean) : (imgField ? [imgField] : []);
+      list.push({ id: get(col.id)||`q${r}`, grade, q, choices, answer: ansIdx, exp, tags, images });
+    }
+    return list;
+  }
+     // メニューの各級の問題数を表示
+  function updateMenuCounts(){
+    try{
+      const counts = {1:0,2:0,3:0,4:0};
+      questions.forEach(q=>{ if(counts[q.grade] != null) counts[q.grade]++; });
+      [1,2,3,4].forEach(g=>{
+        const card = document.querySelector(`.grade[data-grade="${g}"]`);
+        if(!card) return;
+        let line = card.querySelector('.grade-count-line');
+        if(!line){
+          line = document.createElement('div');
+          line.className = 'small muted grade-count-line';
+          card.appendChild(line);
+        }
+        line.textContent = `登録問題数: ${counts[g]}問`;
+      });
+    }catch(e){ console.warn('updateMenuCounts err', e); }
+  }
+  updateMenuCounts();
+
+   (async () => {
+    // === Autoload CSV on page load (tries both names) ===
+    const tryFiles = ['questions.csv', 'question.csv'];
+    let csvText = '';
+    for (const f of tryFiles) {
+      try {
+        const res = await fetch(f, {cache: 'no-store'});
+        if (res.ok) { csvText = await res.text(); break; }
+      } catch {}
+    }
+    if (csvText) {
+      const rows = parseCSV(csvText);
+      const imported = rowsToQuestions(rows);
+      if (imported.length) {
+        questions.splice(0, questions.length, ...imported);
+        window.questions = questions;
+        // 総数表示を更新
+        const totalEl = document.getElementById('total-count');
+        if (totalEl) totalEl.textContent = String(imported.length);
+        // CSVが入っていることが分かるようにコンソールへ
+        console.log(`[autoload] CSV loaded: ${imported.length} questions`);
+      }
+    } else {
+      console.warn('[autoload] CSV not found (questions.csv / question.csv)');
+    }
+
+  
+  })();
+
+  // 受験設定
+  const EXAM_MINUTES = 10; // 制限時間(分)。0 で無制限
+  const SHUFFLE_QUESTIONS = true; // 出題順シャッフル
+  const SHUFFLE_CHOICES = false; // 選択肢シャッフル
+  const QUESTIONS_PER_EXAM = 0; // 一回の出題数（該当級からランダム抽出）。0なら全問
+  // ▼ 級ごとの設定（出題時間・合格ライン %）
+  const PER_GRADE = {
+    1: { minutes: 15, pass: 80 },
+    2: { minutes: 12, pass: 80 },
+    3: { minutes: 10, pass: 70 },
+    4: { minutes: 8,  pass: 70 }
+  };
+  // ランタイムで変更可能な制限時間（分）
+  let examMinutes = EXAM_MINUTES; // 該当級の全問題を出題// 一回の出題数（該当級からランダム抽出）。0なら全問
+
+  // ==== 2) 以下は基本ロジック ================================================
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const stateKey = 'exam-state-v2';
+
+  let selectedGrade = null;      // 1..4
+  let bank = [];                 // 選ばれた級の問題
+  let order = [];                // 出題順インデックス（bankの添字）
+  let answers = {};              // { id: 選んだインデックス }
+  let current = 0;
+  let countdownId = null;
+  let startedAt = null;
+  let choiceOrder = {}; // 各問題の選択肢並びを1回だけ決めて保持
+
+  function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+
+  function persist(){
+    const payload = { selectedGrade, order, answers, current, startedAt, bankIds: bank.map(q=>q.id) };
+    localStorage.setItem(stateKey, JSON.stringify(payload));
+  }
+  function restore(){ const raw = localStorage.getItem(stateKey); if(!raw) return null; try{ return JSON.parse(raw); }catch{ return null } }
+  function clearState(){ localStorage.removeItem(stateKey); }
+
+  // --- メニュー ---
+  function setupMenu(){
+    $$('#grade-list .grade').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        $$('#grade-list .grade').forEach(c=>c.dataset.active = 'false');
+        card.dataset.active = 'true';
+        selectedGrade = Number(card.dataset.grade);
+        $('#btn-start').disabled = false;
+      });
+    });
+    $('#btn-start').addEventListener('click', ()=>{
+      if(!selectedGrade) return;
+      prepareBank(selectedGrade);
+      if(!bank.length){
+      alert('この級の問題がありません。CSVのgrade列(1〜4)やファイル名を確認してください。');
+      return;
+      }
+      start();
+    });
+  }
+
+  function prepareBank(grade){
+    const pool = questions.filter(q=>q.grade===grade);
+    if(pool.length===0){ alert(`${grade}級の問題が未登録です。questionsのgradeを設定してください。`); return; }
+    bank = [...pool];
+    if(QUESTIONS_PER_EXAM && QUESTIONS_PER_EXAM>0 && bank.length>QUESTIONS_PER_EXAM){
+      bank = shuffle(bank).slice(0, QUESTIONS_PER_EXAM);
+    }
+    order = bank.map((_,i)=>i);
+    if(SHUFFLE_QUESTIONS) order = shuffle(order);
+
+    $('#grade-label').textContent = `${grade}級`;
+    $('#total-count').textContent = String(bank.length);
+    $('#total').textContent = String(bank.length);
+    $('#limit-min').textContent = EXAM_MINUTES ? EXAM_MINUTES : 'なし';
+  }
+
+  function init(){
+    // 初期表示で結果画面を必ず隠す
+    document.getElementById('summary')?.classList.add('hidden');
+    setupMenu();
+    const restored = restore();
+    if(restored){
+      selectedGrade = restored.selectedGrade;
+      // 復元時は bank を ids から再構築（questionsが更新されても対応）
+      const idSet = new Set(restored.bankIds||[]);
+      bank = questions.filter(q=>idSet.has(q.id));
+      order = restored.order||[]; answers = restored.answers||{}; current = restored.current||0; startedAt = restored.startedAt||null;
+      if(selectedGrade && bank.length){
+        $('#menu').classList.add('hidden');
+        $('#intro').classList.remove('hidden');
+        updateProgress();
+      }
+    }
+  }
+
+  function start(){
+    // 新規開始時は前回の進捗をクリアし、必ず第1問から開始
+    try { clearState && clearState(); } catch(e){}
+    answers = {};
+    current = 0;
+    choiceOrder = {};
+    startedAt = null;
+
+    // 画面切替
+    $('#menu').classList.add('hidden');
+    $('#intro').classList.remove('hidden');
+    $('#quiz').classList.remove('hidden');
+    $('#summary').classList.add('hidden');
+
+    if(!startedAt) startedAt = Date.now();
+    if(EXAM_MINUTES>0 && !countdownId) startCountdown(EXAM_MINUTES*60);
+
+      // 選択級のプールを構築
+  if (typeof prepareBank === 'function') { prepareBank(selectedGrade); }
+
+// 必ず第1問を描画
+    if(!window.bank || !window.bank.length){
+    alert('この級の問題が見つかりません。CSVの grade 列（1〜4）、およびファイル配置をご確認ください。');
+    document.getElementById('menu')?.classList.remove('hidden');
+    document.getElementById('quiz')?.classList.add('hidden');
+    document.getElementById('intro')?.classList.add('hidden');
+    return;
+  }
+  renderCurrent();
+  persist();
+}
+
+  function startCountdown(totalSec){
+    function tick(){
+      const elapsed = Math.floor((Date.now()-startedAt)/1000);
+      const left = Math.max(0, totalSec - elapsed);
+      const mm = String(Math.floor(left/60)).padStart(2,'0');
+      const ss = String(left%60).padStart(2,'0');
+      $('#time-left').textContent = `${mm}:${ss}`;
+      if(left<=0){ clearInterval(countdownId); countdownId=null; finish(); }
+    }
+    tick();
+    countdownId = setInterval(tick, 1000);
+  }
+
+  function renderCurrent(){
+    const qi = order[current];
+    if(qi==null || !bank.length){ current = 0; updateProgress(); persist(); return renderCurrent(); }
+    const data = bank[qi];
+    const choices = SHUFFLE_CHOICES ? shuffle(data.choices.map((c,i)=>({t:c, i}))) : data.choices.map((c,i)=>({t:c, i}));
+    const chosen = Number.isInteger(answers[data.id]) ? answers[data.id] : null;
+
+     const html = `
+      <div class="muted small">${selectedGrade}級・問題 ${current+1} / ${bank.length} ・ タグ: ${(data.tags||[]).join(', ')}</div>
+      <div class="qtext">${data.q}</div>
+      <div class="choices">
+        ${choices.map((c)=>`<div class="choice" role="radio" aria-checked="${chosen===c.i}" data-index="${c.i}">${c.t.replace(/</g,'&lt;')}</div>`).join('')}
+      </div>
+      <div class="footer">
+        <button class="btn secondary" id="btn-prev" ${current===0?'disabled':''}>戻る</button>
+        <div class="row">
+          <button class="btn secondary" id="btn-review">見直し</button>
+          <button class="btn" id="btn-next">${current===bank.length-1?'採点する':'次へ'}</button>
+        </div>
+      </div>
+    `;
+    $('#quiz').innerHTML = html;
+
+    $$('#quiz .choice').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        answers[data.id] = Number(el.dataset.index);
+        // 再描画せず選択状態のみ更新（シャッフル再実行を防ぐ）
+        $$('#quiz .choice').forEach(c=>{
+          const checked = Number(c.dataset.index) === answers[data.id];
+          c.setAttribute('aria-checked', String(checked));
+        });
+        updateProgress();
+        persist();
+      });
+    });
+
+
+    $('#btn-prev').addEventListener('click', ()=>{ current=Math.max(0,current-1); renderCurrent(); updateProgress(); persist(); });
+    $('#btn-next').addEventListener('click', ()=>{ if(current===bank.length-1) finish(); else { current++; renderCurrent(); updateProgress(); persist(); } });
+    $('#btn-review').addEventListener('click', showReview);
+  }
+
+  function updateProgress(){
+    const answered = Object.keys(answers).length;
+    const percent = bank.length ? Math.round(100*answered/bank.length) : 0;
+    $('#progress').value = percent; $('#progress-label').textContent = String(percent);
+    $('#pos').textContent = String(Math.min(current+1, bank.length));
+  }
+
+  function finish(){
+    $('#quiz').classList.add('hidden');
+    $('#summary').classList.remove('hidden');
+
+    let score=0; const out=[];
+    order.forEach((oi,idx)=>{
+      const q = bank[oi];
+      const a = answers[q.id];
+      const ok = Number.isInteger(a) && a === q.answer;
+      if(ok) score++;
+      out.push({ no: idx+1, id: q.id, question: q.q.replace(/<[^>]+>/g,''), your: Number.isInteger(a)? q.choices[a] : '(未回答)', correct: q.choices[q.answer], result: ok? '○':'×', exp: q.exp||'' });
+    });
+
+    $('#result-grade').textContent = `${selectedGrade}級`;
+    $('#score').textContent = String(score);
+    $('#score-total').textContent = String(bank.length);
+    $('#percent').textContent = String(Math.round(100*score/bank.length));
+
+    const reviewHtml = out.map(r=>`<details style="margin:8px 0"><summary>${r.no}. ${r.question} — <strong>${r.result}</strong></summary><div class="small"><div>あなた: ${r.your}</div><div>正解: ${r.correct}</div>${r.exp?`<div>解説: ${r.exp}</div>`:''}</div></details>`).join('');
+    $('#review').innerHTML = reviewHtml;
+    persist();
+  }
+
+  function showReview(){ $('#summary').classList.remove('hidden'); window.scrollTo({top:document.body.scrollHeight, behavior:'smooth'}); }
+
+  function exportJSON(){
+    const blob = new Blob([JSON.stringify(questions, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'questions.sample.json'; a.click();
+  }
+
+  function exportCSV(){
+    const rows = [ ['no','grade','id','question','your','correct','result','exp'] ];
+    order.forEach((oi,idx)=>{
+      const q = bank[oi]; const a = answers[q.id]; const your = Number.isInteger(a)? q.choices[a] : '';
+      const ok = Number.isInteger(a) && a===q.answer;
+      rows.push([idx+1, q.grade, q.id, q.q.replace(/\n/g,' ').replace(/<[^>]+>/g,''), your, q.choices[q.answer], ok?'OK':'NG', q.exp||'']);
+    });
+    const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `result_${selectedGrade}kyu.csv`; a.click();
+  }
+
+  // Buttons
+  // --- CSV 読み込み実装（UTF-8/Shift_JIS対応・ダブルクォート対応） ---
+(function setupCsvImport(){
+  const btnImport = document.getElementById('btn-import');
+  const fileInput = document.getElementById('file-questions');
+  if(!btnImport || !fileInput) return;
+
+  btnImport.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    try{
+      const text = await readAsTextWithFallback(file); // UTF-8 → SJIS フォールバック
+      const rows = parseCSV(text);
+      const imported = rowsToQuestions(rows);
+      if(!imported.length){
+        alert('CSVから問題を読み込めませんでした。ヘッダや列名をご確認ください。\n想定: id,grade,q,choice1..,answer,exp,tags');
+        return;
+      }
+      // 既存の配列参照を維持したまま置き換え
+      questions.splice(0, questions.length, ...imported);
+      window.questions = questions;
+
+      alert(`CSVから ${imported.length} 問を読み込みました。級を選んで開始してください。`);
+
+      // 進行状態をリセットしてメニューに戻す
+      clearState();
+      document.getElementById('menu')?.classList.remove('hidden');
+      document.getElementById('intro')?.classList.add('hidden');
+      document.getElementById('quiz')?.classList.add('hidden');
+      document.getElementById('summary')?.classList.add('hidden');
+      document.getElementById('total-count').textContent = String(imported.length);
+    }catch(err){
+      console.error(err);
+      alert('CSVの読み込みでエラーが発生しました: '+ err);
+    }finally{
+      e.target.value=''; // 同じファイルの再選択を許可
+    }
+  });
+
+  // --- helpers ---
+  async function readAsTextWithFallback(file){
+    const buf = await file.arrayBuffer();
+    // まずUTF-8
+    let dec = new TextDecoder('utf-8', {fatal:false});
+    let text = dec.decode(new Uint8Array(buf));
+    // 文字化け簡易判定：置換文字が多い or 日本語が極端に少ない → Shift_JIS 再デコード
+    const replacementCount = (text.match(/\uFFFD/g)||[]).length;
+    const kanaCount = (text.match(/[ぁ-んァ-ン]/g)||[]).length;
+    if (replacementCount > 5 || kanaCount === 0) {
+      try { dec = new TextDecoder('shift-jis'); text = dec.decode(new Uint8Array(buf)); } catch {}
+    }
+    return text;
+  }
+
+  // ダブルクォート対応の簡易CSVパーサ
+  function parseCSV(str){
+    const out=[]; let row=[], cur='', q=false;
+    for(let i=0;i<str.length;i++){
+      const ch=str[i], nx=str[i+1];
+      if(q){
+        if(ch === '"' && nx === '"'){ cur += '"'; i++; }
+        else if(ch === '"'){ q=false; }
+        else { cur += ch; }
+      }else{
+        if(ch === '"'){ q=true; }
+        else if(ch === ','){ row.push(cur); cur=''; }
+        else if(ch === '\n'){ row.push(cur); out.push(row); row=[]; cur=''; }
+        else if(ch === '\r'){ /* ignore */ }
+        else { cur += ch; }
+      }
+    }
+    row.push(cur); out.push(row);
+    return out.filter(r => r.some(c => String(c).trim() !== ''));
+  }
+
+  // rows -> questions[]（ヘッダに基づく変換）
+  function rowsToQuestions(rows){
+    if(!rows.length) return [];
+    const header = rows[0].map(h=>String(h).trim());
+    const idx = (name)=> header.findIndex(h=> h.toLowerCase()===name.toLowerCase());
+    const col = {
+      id: idx('id'), grade: idx('grade'), q: idx('q'),
+      c1: idx('choice1'), c2: idx('choice2'), c3: idx('choice3'), c4: idx('choice4'),
+      c5: idx('choice5'), c6: idx('choice6'), answer: idx('answer'), exp: idx('exp'), tags: idx('tags')
+    };
+    const hasHeader = col.q !== -1 && (col.c1 !== -1 || col.c2 !== -1);
+    const start = hasHeader ? 1 : 0;
+
+    const list=[];
+    for(let r=start; r<rows.length; r++){
+      const row = rows[r];
+      const get = (i)=> (i>=0 && i<row.length) ? String(row[i]||'').trim() : '';
+      const q = get(col.q);
+      if(!q) continue;
+
+      const choices = [get(col.c1), get(col.c2), get(col.c3), get(col.c4), get(col.c5), get(col.c6)].filter(Boolean);
+      if(choices.length < 2) continue;
+
+      const ansRaw = get(col.answer) || '1';
+      const ansIdx = /^\d+$/.test(ansRaw) ? Math.max(0, parseInt(ansRaw,10)-1) : 0;
+
+      const gradeRaw = get(col.grade) || '4';
+      const grade = /^\d+$/.test(gradeRaw) ? parseInt(gradeRaw,10) : 4;
+
+      const exp = get(col.exp);
+      const tags = (get(col.tags)||'').replace('／','/').replace('|','/').split('/').map(s=>s.trim()).filter(Boolean);
+
+      list.push({ id: get(col.id)||`q${r}`, grade, q, choices, answer: ansIdx, exp, tags });
+    }
+    return list;
+  }
+})();
+
+  init();
+  </script>
+</body>
+</html>
