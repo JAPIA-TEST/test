@@ -600,5 +600,59 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 </script>
 </script>
+
+<!-- Fix patch: always-enable Start and guard in start() without relying on async timing -->
+<script>
+(function(){
+  function enableStart(){
+    var btn = document.getElementById('btn-start');
+    if(btn){ btn.disabled = false; btn.removeAttribute('disabled'); }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    enableStart();
+    // Ensure grade selection sets selectedGrade
+    document.querySelectorAll('.grade').forEach(function(el){
+      el.addEventListener('click', function(){
+        try { window.selectedGrade = Number(el.dataset.grade || 0); } catch(e){}
+        enableStart();
+      });
+    });
+    // Wrap start() with guards, but call original logic if all good
+    if(typeof window.start === 'function'){
+      var __origStart = window.start;
+      window.start = function(){
+        try{
+          var qs = Array.isArray(window.questions) ? window.questions : [];
+          var g = Number(window.selectedGrade || 0);
+          if(!g){ alert('級を選んでください。'); return; }
+          if(qs.length === 0){ alert('問題データを読み込み中です。数秒後にもう一度お試しください。'); return; }
+          var has = qs.some(function(q){ return q && Number(q.grade) === g; });
+          if(!has){ alert(g + '級の問題が見つかりません。CSVの grade 列（1〜4）をご確認ください。'); return; }
+        }catch(e){}
+        return __origStart();
+      };
+    } else {
+      // If start() not yet defined when DOM ready, try again shortly
+      setTimeout(function(){ try {
+        if(typeof window.start === 'function'){
+          var __origStart2 = window.start;
+          window.start = function(){
+            try{
+              var qs = Array.isArray(window.questions) ? window.questions : [];
+              var g = Number(window.selectedGrade || 0);
+              if(!g){ alert('級を選んでください。'); return; }
+              if(qs.length === 0){ alert('問題データを読み込み中です。数秒後にもう一度お試しください。'); return; }
+              var has = qs.some(function(q){ return q && Number(q.grade) === g; });
+              if(!has){ alert(g + '級の問題が見つかりません。CSVの grade 列（1〜4）をご確認ください。'); return; }
+            }catch(e){}
+            return __origStart2();
+          };
+        }
+      } catch(e){} }, 500);
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
