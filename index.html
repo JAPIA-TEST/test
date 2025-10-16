@@ -355,6 +355,7 @@
     if (!selectedGrade) { alert('級を選んでください。'); return; }
     recountByGrade();
     if (!countsByGrade[selectedGrade]) { alert(`${selectedGrade}級の問題が見つかりません。CSVの grade 列（1〜4）をご確認ください。`); return; }
+  const _btn = document.getElementById('btn-start'); if(_btn && _btn.disabled) _btn.disabled = false;
 
     $('#menu').classList.add('hidden');
     $('#intro').classList.remove('hidden');
@@ -584,6 +585,12 @@
 })();
 
   init();
-  </script>
+  
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  try { recountByGrade && recountByGrade(); setStartEnabled && setStartEnabled(); } catch(e){}
+});
+</script>
+</script>
 </body>
 </html>
