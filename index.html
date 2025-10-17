@@ -24,6 +24,13 @@
     .choice.selected { border-color:#2563eb; background:#eef2ff; }
     
   </style>
+
+<style>
+  .grade.active{outline:3px solid #2563eb;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,0.12) inset;}
+  .hud{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+  .badge{display:inline-block;padding:6px 10px;border-radius:9999px;border:1px solid #e5e7eb;background:#f9fafb;font-size:12px;color:#111827;}
+</style>
+
 </head>
 <body>
   <header>
@@ -73,6 +80,11 @@
     </section>
 
     <section id="quiz" class="card hidden">
+  <div id="hud" class="hud">
+    <span id="hud-time" class="badge">経過: 00:00</span>
+    <span id="hud-remaining" class="badge">残り: 0問</span>
+  </div>
+
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
         <button class="btn" id="btn-back-menu" type="button">メニューに戻る</button>
       </div>
@@ -427,6 +439,108 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 });
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // すでに他のスクリプトが設定している可能性があるが、二重設定を避けつつ補強
+  document.querySelectorAll('.grade').forEach(function(el){
+    if (el._activePatchBound) return;
+    el._activePatchBound = true;
+    el.addEventListener('click', function(){
+      document.querySelectorAll('.grade').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+    });
+  });
+});
+</script>
+
+
+<script>
+(function(){
+  if (window._hudPatched) return; window._hudPatched = true;
+
+  function pad(n){ return (n<10?'0':'') + n; }
+  function fmt(secs){
+    const m = Math.floor(secs/60), s = secs%60;
+    return pad(m) + ':' + pad(s);
+  }
+  function updateHud(){
+    try{
+      var timeEl = document.getElementById('hud-time');
+      var remEl = document.getElementById('hud-remaining');
+      if(!timeEl && !remEl) return;
+
+      var startedAt = window.startedAt || window._startedAtHud || null;
+      if(startedAt){
+        var secs = Math.max(0, Math.floor((Date.now() - startedAt)/1000));
+        if(timeEl) timeEl.textContent = '経過: ' + fmt(secs);
+      }
+      var total = Array.isArray(window.order) ? window.order.length : 0;
+      var rem = total ? Math.max(0, total - (Number(window.current||0) + 1)) : 0;
+      if(remEl) remEl.textContent = '残り: ' + rem + '問';
+    }catch(e){ /* noop */ }
+  }
+
+  function startTimer(){
+    try{
+      window._startedAtHud = Date.now();
+      if (window._hudTimer) clearInterval(window._hudTimer);
+      window._hudTimer = setInterval(updateHud, 1000);
+      updateHud();
+    }catch(e){}
+  }
+  function stopTimer(){
+    try{ if(window._hudTimer){ clearInterval(window._hudTimer); window._hudTimer = null; } }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    // wrap start()
+    if (typeof window.start === 'function' && !window.start._hudWrapped){
+      var _origStart = window.start;
+      window.start = function(){
+        var r = _origStart.apply(this, arguments);
+        // ensure a start timestamp exists even if original code doesn't set it
+        if (!window.startedAt) window.startedAt = new Date();
+        startTimer();
+        return r;
+      };
+      window.start._hudWrapped = true;
+    }
+
+    // wrap renderCurrent()
+    if (typeof window.renderCurrent === 'function' && !window.renderCurrent._hudWrapped){
+      var _origRender = window.renderCurrent;
+      window.renderCurrent = function(){
+        var r = _origRender.apply(this, arguments);
+        updateHud();
+        return r;
+      };
+      window.renderCurrent._hudWrapped = true;
+    }
+
+    // wrap finish()
+    if (typeof window.finish === 'function' && !window.finish._hudWrapped){
+      var _origFinish = window.finish;
+      window.finish = function(){
+        stopTimer();
+        return _origFinish.apply(this, arguments);
+      };
+      window.finish._hudWrapped = true;
+    }
+
+    // wrap backToMenu() if exists
+    if (typeof window.backToMenu === 'function' && !window.backToMenu._hudWrapped){
+      var _origBack = window.backToMenu;
+      window.backToMenu = function(){
+        stopTimer();
+        return _origBack.apply(this, arguments);
+      };
+      window.backToMenu._hudWrapped = true;
+    }
+  });
+})();
 </script>
 
 </body>
