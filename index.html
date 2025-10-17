@@ -527,5 +527,122 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 </script>
 
+
+<!-- Core quiz logic (added) -->
+<script>
+// ---- Core State ----
+window.questions = Array.isArray(window.questions) ? window.questions : [];
+var dataReady = typeof dataReady === 'boolean' ? dataReady : (window.questions.length > 0);
+var selectedGrade = window.selectedGrade || 0;
+var bank = [];
+var order = [];
+var current = 0;
+var answers = {};
+var choiceOrder = {};
+var startedAt = null;
+
+// ---- Core Functions ----
+function prepareBank(grade){
+  var g = Number(grade||0);
+  var qs = Array.isArray(window.questions) ? window.questions : [];
+  bank = qs.filter(function(q){ return Number(q && q.grade) === g; });
+  order = bank.map(function(_,i){ return i; });
+  current = 0;
+  answers = {};
+  choiceOrder = {};
+}
+
+function start(){
+  if(!Array.isArray(window.questions) || window.questions.length===0){
+    alert('問題データを読み込み中です。数秒後にもう一度お試しください。');
+    return;
+  }
+  if(!selectedGrade){
+    alert('級を選んでください。');
+    return;
+  }
+  prepareBank(selectedGrade);
+  if(!bank.length){
+    // fallback: 全問題
+    bank = window.questions.slice();
+    order = bank.map(function(_,i){ return i; });
+  }
+  startedAt = new Date();
+  // 画面切替
+  try{
+    document.getElementById('menu')?.classList.add('hidden');
+    document.getElementById('intro')?.classList.remove('hidden');
+    document.getElementById('quiz')?.classList.remove('hidden');
+  }catch(e){}
+  // 初回描画
+  renderCurrent();
+}
+
+function renderCurrent(){
+  if(!bank.length){ return; }
+  var qi = order[current];
+  var q = bank[qi];
+  var qtext = document.getElementById('qtext');
+  var box = document.getElementById('choices');
+  var nextBtn = document.getElementById('btn-next');
+  if(qtext){ qtext.innerHTML = '<strong>Q.</strong> ' + (q.q || ''); }
+  if(box){ box.innerHTML = ''; }
+  if(nextBtn){ nextBtn.disabled = true; }
+
+  var saved = (answers.hasOwnProperty(qi) ? answers[qi] : null);
+  (q.choices || []).forEach(function(choice, idx){
+    var b = document.createElement('button');
+    b.className = 'choice' + (saved===idx ? ' selected' : '');
+    b.type = 'button';
+    b.textContent = (idx+1) + '. ' + choice;
+    b.addEventListener('click', function(){
+      answers[qi] = idx;
+      // 選択ハイライト
+      try{ box.querySelectorAll('.choice').forEach(function(x){ x.classList.remove('selected'); }); }catch(e){}
+      b.classList.add('selected');
+      if(nextBtn){ nextBtn.disabled = false; }
+    });
+    if(box) box.appendChild(b);
+  });
+
+  var progress = document.getElementById('progress');
+  if(progress){ progress.textContent = (current+1) + ' / ' + order.length; }
+}
+
+function finish(){
+  var correct = 0;
+  order.forEach(function(qi){
+    var q = bank[qi];
+    if(answers[qi] === q.answer) correct++;
+  });
+  var scoreEl = document.getElementById('score');
+  if(scoreEl){ scoreEl.textContent = 'スコア：' + correct + ' / ' + order.length; }
+  try{
+    document.getElementById('quiz')?.classList.add('hidden');
+    document.getElementById('summary')?.classList.remove('hidden');
+  }catch(e){}
+}
+
+function backToMenu(skipConfirm){
+  if(!skipConfirm){
+    if(!confirm('試験を中断してメニューに戻ります。進捗は失われます。よろしいですか？')) return;
+  }
+  // reset runtime state
+  answers = {};
+  current = 0;
+  choiceOrder = {};
+  startedAt = null;
+  // show menu
+  try{
+    document.getElementById('menu')?.classList.remove('hidden');
+    document.getElementById('intro')?.classList.add('hidden');
+    document.getElementById('quiz')?.classList.add('hidden');
+    document.getElementById('summary')?.classList.add('hidden');
+  }catch(e){}
+  // recount
+  try{ if(typeof recountByGrade === 'function') recountByGrade(); }catch(e){}
+}
+</script>
+
 </body>
 </html>
