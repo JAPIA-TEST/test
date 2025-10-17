@@ -257,8 +257,7 @@ function recountByGrade(){
     Object.keys(ids).forEach(k=>{ const el = document.getElementById(ids[k]); if(el) el.textContent = String(c[k]); });
     window.countsByGrade = c;
   }catch(e){ console.warn('recountByGrade safe guard:', e); }
-});
-  });
+
 
   // start button
   var startBtn = document.getElementById('btn-start');
@@ -290,7 +289,7 @@ function recountByGrade(){
   document.getElementById('btn-back-menu').addEventListener('click', function(){
     backToMenu(false);
   });
-});
+
 </script>
 
 <!-- ==== Core Quiz Logic ==== -->
