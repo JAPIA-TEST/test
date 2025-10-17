@@ -526,7 +526,7 @@ window.TIME_LIMIT_MINUTES = window.TIME_LIMIT_MINUTES || {1: 30, 2: 25, 3: 20, 4
       if(quiz){
         var hud = document.createElement('div');
         hud.className = 'hud';
-        hud.innerHTML = '<span id="hud-time" class="badge">残り時間: 00:00</span> <span id="hud-remaining" class="badge">残り問題数: 0問</span>';
+        hud.innerHTML = '<span id="hud-time" class="badge">残り時間: 00:00</span>';
         quiz.insertBefore(hud, quiz.firstChild);
       }
     }
