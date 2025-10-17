@@ -644,5 +644,86 @@ function backToMenu(skipConfirm){
 }
 </script>
 
+
+<!-- Adaptive quiz rendering patch: support varied IDs and create slots if missing -->
+<script id="adaptive-quiz-render">
+(function(){
+  if (window._adaptiveQuizPatched) return; window._adaptiveQuizPatched = true;
+
+  function ensureQuizSlots(){
+    var quiz = document.getElementById('quiz');
+    if(!quiz) return {qtext:null, choices:null, progress:null};
+
+    var qtext = document.getElementById('qtext') || document.getElementById('question');
+    var choices = document.getElementById('choices') || document.getElementById('options');
+    var progress = document.getElementById('progress') || null;
+
+    // If none exist, create minimal slots
+    if(!qtext){
+      qtext = document.createElement('div');
+      qtext.id = 'qtext';
+      qtext.style.marginBottom = '8px';
+      quiz.appendChild(qtext);
+    }
+    if(!choices){
+      choices = document.createElement('div');
+      choices.id = 'choices';
+      choices.className = 'choices';
+      quiz.appendChild(choices);
+    }
+    if(!progress){
+      progress = document.createElement('span');
+      progress.id = 'progress';
+      progress.className = 'muted';
+      progress.style.marginLeft = '8px';
+      // Try to place near Next button
+      var nextBtn = document.getElementById('btn-next');
+      if(nextBtn && nextBtn.parentElement){
+        nextBtn.parentElement.appendChild(progress);
+      }else{
+        quiz.appendChild(progress);
+      }
+    }
+    return {qtext:qtext, choices:choices, progress:progress};
+  }
+
+  // Replace renderCurrent to be layout-agnostic
+  var _render = function(){
+    // guard
+    if(!Array.isArray(window.bank) || !window.bank.length){ return; }
+    var slots = ensureQuizSlots();
+    var qtext = slots.qtext, box = slots.choices, progressEl = slots.progress;
+    var qi = window.order[window.current];
+    var q = window.bank[qi] || {};
+
+    if(qtext){ qtext.innerHTML = '<strong>Q.</strong> ' + (q.q || ''); }
+    if(box){ box.innerHTML = ''; }
+
+    var nextBtn = document.getElementById('btn-next');
+    if(nextBtn) nextBtn.disabled = true;
+
+    var saved = (window.answers && Object.prototype.hasOwnProperty.call(window.answers, qi)) ? window.answers[qi] : null;
+    (q.choices || []).forEach(function(choice, idx){
+      var b = document.createElement('button');
+      b.className = 'choice' + (saved===idx ? ' selected' : '');
+      b.type = 'button';
+      b.textContent = (idx+1) + '. ' + choice;
+      b.addEventListener('click', function(){
+        window.answers[qi] = idx;
+        try{ box.querySelectorAll('.choice').forEach(function(x){ x.classList.remove('selected'); }); }catch(e){}
+        b.classList.add('selected');
+        if(nextBtn) nextBtn.disabled = false;
+      });
+      if(box) box.appendChild(b);
+    });
+
+    if(progressEl){ progressEl.textContent = String((window.current+1) + ' / ' + window.order.length); }
+  };
+
+  // Install override
+  window.renderCurrent = _render;
+})();
+</script>
+
 </body>
 </html>
