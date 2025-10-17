@@ -19,6 +19,10 @@
     .choice:hover { background:#f3f4f6; }
     header { padding: 12px 0; border-bottom:1px solid #eee; background:#fafafa; }
     header .row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  
+    .grade.active { outline: 2px solid #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15) inset; }
+    .choice.selected { border-color:#2563eb; background:#eef2ff; }
+    
   </style>
 </head>
 <body>
@@ -52,7 +56,7 @@
       </div>
       <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
         <button id="btn-start" class="btn" type="button">この級で受験を開始</button>
-        <span class="muted">CSV 自動読み込み完了後に開始できます</span>
+        <span class="muted">CSV 自動読み込み完了後に開始できます</span><span class="muted" id="selected-grade-label" style="margin-left:12px;"></span>
       </div>
     </section>
 
@@ -236,6 +240,11 @@ document.addEventListener('DOMContentLoaded', function(){
       selectedGrade = Number(el.dataset.grade||0);
       document.querySelectorAll('.grade').forEach(x=>x.classList.remove('active'));
       el.classList.add('active');
+      // enable start
+      if(startBtn){ startBtn.disabled = false; startBtn.removeAttribute('disabled'); }
+      // label
+      var lab = document.getElementById('selected-grade-label');
+      if(lab){ lab.textContent = '選択中: ' + selectedGrade + '級'; }
     });
   });
 
@@ -309,6 +318,7 @@ function start(){
   document.getElementById('intro').classList.remove('hidden');
   document.getElementById('quiz').classList.remove('hidden');
   renderCurrent();
+  var nb=document.getElementById('btn-next'); if(nb){ nb.disabled = true; }
 }
 
 function renderCurrent(){
@@ -318,18 +328,32 @@ function renderCurrent(){
   document.getElementById('qtext').innerHTML = `<strong>Q.</strong> ${q.q}`;
   const box = document.getElementById('choices');
   box.innerHTML = '';
-  const choices = q.choices.slice(); // ここでは並びは固定（v6準拠）
+  const nextBtn = document.getElementById('btn-next');
+  if(nextBtn){ nextBtn.disabled = true; }
+
+  const choices = q.choices.slice(); // 並び固定
+  const saved = answers.hasOwnProperty(qi) ? answers[qi] : null;
+
   choices.forEach((c,idx)=>{
     const b = document.createElement('button');
-    b.className = 'choice';
+    b.className = 'choice' + (saved===idx ? ' selected' : '');
     b.type = 'button';
     b.textContent = `${idx+1}. ${c}`;
     b.addEventListener('click', ()=>{
+      // 選択状態の更新
       answers[qi] = idx;
-      // 即次へ（任意）：ここでは留まる
+      // 全てのchoiceからselectedを外して、クリックしたものに付与
+      box.querySelectorAll('.choice').forEach(x=>x.classList.remove('selected'));
+      b.classList.add('selected');
+      // 次へ有効化
+      if(nextBtn){ nextBtn.disabled = false; }
     });
     box.appendChild(b);
   });
+
+  // 既に回答済みなら Next を有効化
+  if(saved !== null && nextBtn){ nextBtn.disabled = false; }
+
   document.getElementById('progress').textContent = `${current+1} / ${order.length}`;
 }
 
