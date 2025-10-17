@@ -106,11 +106,7 @@
       </div>
     </section>
 
-    <section class="card hidden" id="quiz">
-  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
-    <button class="btn" id="btn-back-menu" type="button">メニューに戻る</button>
-  </div>
-</section>
+    <section class="card hidden" id="quiz"></section>
 
     <section class="card hidden" id="summary">
       <h2>結果</h2>
@@ -595,14 +591,12 @@
     return list;
   }
 })();
-
   init();
-  
+  </script>
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
   try { recountByGrade && recountByGrade(); setStartEnabled && setStartEnabled(); } catch(e){}
 });
-</script>
 </script>
 
 <!-- Fix patch: always-enable Start and guard in start() without relying on async timing -->
@@ -659,45 +653,285 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 
 
-<!-- Back to Menu during quiz -->
-<script id="back-to-menu-handler">
+<!-- Patch: Robust manual CSV import for Edge (UTF-8 / Shift_JIS fallback) -->
+<script>
 (function(){
-  function backToMenu(){
-    if(!confirm('試験を中断してメニューに戻ります。進捗は失われます。よろしいですか？')) return;
+  if (window._manualCsvPatched) return;
+  window._manualCsvPatched = true;
+
+  // Small helpers
+  function stripBOM(s){ return s && s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s; }
+  function decodeWithFallback(buf){
+    // Try UTF-8 first
     try{
-      if (window.countdownId){ clearInterval(window.countdownId); window.countdownId = null; }
-      if (typeof clearState === 'function') { try{ clearState(); }catch(e){} }
-      window.answers = {};
-      window.current = 0;
-      window.choiceOrder = {};
-      window.startedAt = null;
-      var menu = document.getElementById('menu');
-      var intro = document.getElementById('intro');
-      var quiz = document.getElementById('quiz');
-      var summary = document.getElementById('summary');
-      if(menu)   menu.classList.remove('hidden');
-      if(intro)  intro.classList.add('hidden');
-      if(quiz)   quiz.classList.add('hidden');
-      if(summary)summary.classList.add('hidden');
-      if (typeof recountByGrade === 'function') { try{ recountByGrade(); }catch(e){} }
-      try{ document.querySelector('.grade')?.focus(); }catch(e){}
-    }catch(err){
-      console.warn('backToMenu error', err);
-    }
+      const utf8 = new TextDecoder('utf-8', {fatal:false}).decode(buf);
+      if (utf8 && utf8.indexOf('\uFFFD') === -1) return utf8;
+    }catch(e){}
+    // Fallback: Shift_JIS
+    try{
+      return new TextDecoder('shift_jis', {fatal:false}).decode(buf);
+    }catch(e){}
+    // Last resort
+    try{ return new TextDecoder('utf-8').decode(buf); }catch(e){ return ''; }
   }
-  function bind(){
-    var btn = document.getElementById('btn-back-menu');
-    if(btn && !btn._boundBack){
-      btn._boundBack = true;
-      btn.addEventListener('click', backToMenu);
-    }
+
+  function recountByGrade(){
+    const c = {1:0,2:0,3:0,4:0};
+    (Array.isArray(window.questions)?window.questions:[]).forEach(q=>{
+      const g = Number(q && q.grade);
+      if(g>=1 && g<=4) c[g]++;
+    });
+    window.countsByGrade = c;
+    try{ if (typeof updateMenuCounts === 'function') updateMenuCounts(); }catch(e){}
   }
+
+  // Hook file inputs that look like CSV uploaders
+  function hookInputs(root){
+    (root || document).querySelectorAll("input[type='file']").forEach(function(inp){
+      const id = (inp.id||'').toLowerCase();
+      const nm = (inp.name||'').toLowerCase();
+      if(!(id.includes('csv') || nm.includes('csv'))) return; // only hook csv inputs
+
+      // Avoid double-binding
+      if (inp._edgeManualCsvBound) return;
+      inp._edgeManualCsvBound = true;
+
+      inp.addEventListener('change', function(ev){
+        const f = inp.files && inp.files[0];
+        if(!f){ return; }
+        const reader = new FileReader();
+        reader.onload = function(e){
+          try{
+            const buf = e.target.result;
+            let csv = decodeWithFallback(buf);
+            csv = stripBOM(csv).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+            if (!csv.trim()) { alert('CSVが空です。'); return; }
+
+            if (typeof parseCSV !== 'function' || typeof rowsToQuestions !== 'function'){
+              alert('CSVパーサが見つかりません（parseCSV/rowsToQuestions）。');
+              return;
+            }
+
+            const rows = parseCSV(csv);
+            const imported = rowsToQuestions(rows);
+            if (!Array.isArray(imported) || !imported.length){
+              alert('CSVを読み取りましたが、有効な問題が見つかりませんでした。ヘッダ名/列内容をご確認ください。');
+              return;
+            }
+
+            // Replace questions
+            window.questions = Array.isArray(window.questions) ? window.questions : [];
+            window.questions.splice(0, window.questions.length, ...imported);
+
+            // Flags & UI
+            window.dataReady = true;
+            const el = document.getElementById('total-count');
+            if (el) el.textContent = String(imported.length);
+            recountByGrade();
+
+            alert('CSVを読み込みました：' + imported.length + '問');
+
+          }catch(err){
+            console.error('manual CSV import failed:', err);
+            alert('CSVの読み込みでエラーが発生しました。ファイル形式と文字コードをご確認ください。');
+          }
+        };
+        // Read as ArrayBuffer for decoding fallback
+        try { reader.readAsArrayBuffer(f); } catch(e){
+          // As a fallback, try readAsText UTF-8
+          try { reader.readAsText(f, 'utf-8'); } catch(e2){ alert('ファイルの読み込みに失敗しました。'); }
+        }
+      });
+    });
+  }
+
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', bind);
+    document.addEventListener('DOMContentLoaded', function(){ hookInputs(document); });
   } else {
-    bind();
+    hookInputs(document);
   }
-  window.backToMenu = backToMenu;
+})();
+</script>
+
+
+<!-- CSV Parsers (must load first) -->
+<script id="csv-parsers">
+(function(){
+  if (window._csvParsersReady) return; window._csvParsersReady = true;
+  window.parseCSV = function(str){
+    const out=[]; let row=[], cur='', q=false;
+    for(let i=0;i<str.length;i++){
+      const ch=str[i], nx=str[i+1];
+      if(q){
+        if(ch=='"' && nx=='"'){ cur+='"'; i++; }
+        else if(ch=='"'){ q=false; }
+        else { cur+=ch; }
+      }else{
+        if(ch=='"'){ q=true; }
+        else if(ch==','){ row.push(cur); cur=''; }
+        else if(ch=='\n'){ row.push(cur); out.push(row); row=[]; cur=''; }
+        else if(ch=='\r'){ }
+        else { cur+=ch; }
+      }
+    }
+    row.push(cur); out.push(row);
+    return out.filter(r=>r.some(c=>String(c).trim()!==''));
+  };
+  window.rowsToQuestions = function(rows){
+    if(!rows.length) return [];
+    const header = rows[0].map(h=>String(h||'').trim());
+    const norm = s => String(s||'').toLowerCase().replace(/\s+/g,'').replace(/　/g,'');
+    const findAny = cands => header.findIndex(h => cands.some(k => norm(h).includes(k)));
+    const col = {
+      id:     findAny(['id','識別','番号']),
+      grade:  findAny(['grade','級','レベル','level','等級']),
+      q:      findAny(['q','question','問題','設問','問']),
+      c1:     findAny(['choice1','選択肢1','こたえ1','解答1','a)']),
+      c2:     findAny(['choice2','選択肢2','こたえ2','解答2','b)']),
+      c3:     findAny(['choice3','選択肢3','こたえ3','解答3','c)']),
+      c4:     findAny(['choice4','選択肢4','こたえ4','解答4','d)']),
+      c5:     findAny(['choice5','選択肢5','こたえ5','解答5','e)']),
+      c6:     findAny(['choice6','選択肢6','こたえ6','解答6','f)']),
+      answer: findAny(['answer','正解','解答','ans']),
+      exp:    findAny(['exp','解説','説明','comment']),
+      tags:   findAny(['tags','タグ','分類','カテゴリ']),
+      img:    findAny(['img','画像','image']),
+      images: findAny(['images','画像一覧'])
+    };
+    const hasHeader = col.q !== -1 && (col.c1 !== -1 || col.c2 !== -1);
+    const start = hasHeader ? 1 : 0;
+    const toHalf = s => String(s||'').replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0)-0xFEE0));
+    const list = [];
+    for(let r=start; r<rows.length; r++){
+      const row = rows[r];
+      const get = i => (i>=0 && i<row.length) ? String(row[i]||'').trim() : '';
+      const q = get(col.q); if(!q) continue;
+      const choices = [get(col.c1),get(col.c2),get(col.c3),get(col.c4),get(col.c5),get(col.c6)].filter(Boolean);
+      if(choices.length<2) continue;
+      let ansRaw = toHalf(get(col.answer)||'1'); const ansDig = ansRaw.match(/\d+/);
+      const answer = ansDig ? Math.max(0, parseInt(ansDig[0],10)-1) : 0;
+      let gRaw = toHalf(get(col.grade)||'4'); const gDig = gRaw.match(/[1-4]/);
+      const grade = gDig ? parseInt(gDig[0],10) : 4;
+      const exp = get(col.exp);
+      const tags = (get(col.tags)||'').replace('／','/').replace('|','/').split('/').map(s=>s.trim()).filter(Boolean);
+      const imgsField = get(col.images);
+      const imgField = get(col.img);
+      const images = imgsField ? imgsField.split('|').map(s=>s.trim()).filter(Boolean) : (imgField ? [imgField] : []);
+      list.push({ id: get(col.id)||`q${r}`, grade, q, choices, answer, exp, tags, images });
+    }
+    return list;
+  };
+})();
+</script>
+
+
+<!-- Helpers: recount & grade numeric selection -->
+<script id="helpers-recount">
+(function(){
+  window.recountByGrade = function(){
+    const c = {1:0,2:0,3:0,4:0};
+    (Array.isArray(window.questions)?window.questions:[]).forEach(q=>{
+      const g = Number(q && q.grade);
+      if(g>=1 && g<=4) c[g]++;
+    });
+    window.countsByGrade = c;
+    try{ if (typeof updateMenuCounts === 'function') updateMenuCounts(); }catch(e){}
+  };
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.grade').forEach(function(el){
+      el.addEventListener('click', function(){ window.selectedGrade = Number(el.dataset.grade||0); });
+    });
+  });
+})();
+</script>
+
+
+<!-- Autoload CSV (UTF-8/SJIS fallback) -->
+<script id="csv-autoload">
+(function(){
+  if (window._csvAutoloadInstalled) return; window._csvAutoloadInstalled = true;
+  function stripBOM(s){ return s && s.charCodeAt(0)===0xFEFF ? s.slice(1) : s; }
+  function decodeWithFallback(buf){
+    try{ const u = new TextDecoder('utf-8',{fatal:false}).decode(buf); if(u && u.indexOf('\uFFFD')===-1) return u; }catch(e){}
+    try{ return new TextDecoder('shift_jis',{fatal:false}).decode(buf); }catch(e){}
+    try{ return new TextDecoder('utf-8').decode(buf); }catch(e){ return ''; }
+  }
+  async function fetchCsvTry(files){
+    for(const f of files){
+      try{
+        const res = await fetch(f + '?v=' + Date.now(), {cache:'no-store'});
+        if(res.ok){
+          const buf = await res.arrayBuffer();
+          const txt = decodeWithFallback(buf);
+          if (txt && txt.trim()) return {name:f, text:txt};
+        }
+      }catch(e){ console.warn('fetch failed', f, e); }
+    }
+    return null;
+  }
+  async function autoload(){
+    const got = await fetchCsvTry(['questions.csv','question.csv']);
+    if(!got){ console.warn('[autoload] CSV not found'); return; }
+    let csv = stripBOM(got.text).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    if (typeof parseCSV !== 'function' || typeof rowsToQuestions !== 'function'){ console.error('[autoload] parsers missing'); return; }
+    try{
+      const rows = parseCSV(csv);
+      const imported = rowsToQuestions(rows);
+      if(Array.isArray(imported) && imported.length){
+        window.questions = Array.isArray(window.questions)?window.questions:[];
+        window.questions.splice(0, window.questions.length, ...imported);
+        window.dataReady = true;
+        const el = document.getElementById('total-count'); if(el) el.textContent = String(imported.length);
+        recountByGrade();
+        console.log(`[autoload] CSV loaded (${got.name}): ${imported.length} questions`);
+      }else{
+        console.warn('[autoload] parsed 0 questions');
+      }
+    }catch(e){ console.error('[autoload] parse error', e); }
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', autoload); } else { autoload(); }
+})();
+</script>
+
+
+<!-- Final Start Wrapper -->
+<script id="final-start-wrapper">
+(function(){
+  if (window._startWrapperInstalled) return; window._startWrapperInstalled = true;
+  function buildBank(g){
+    const qs = Array.isArray(window.questions)?window.questions:[];
+    return qs.filter(q => Number(q && q.grade) === Number(g||0));
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    if(typeof window.start === 'function'){
+      const __start = window.start;
+      window.start = function(){
+        if(!Array.isArray(window.questions) || !window.questions.length){
+          alert('問題データを読み込み中です。数秒後にもう一度お試しください。'); return;
+        }
+        const g = Number(window.selectedGrade||0);
+        if(!g){ alert('級を選んでください。'); return; }
+        let bank = buildBank(g);
+        if(!bank.length){
+          const ok = confirm(`${g}級の問題が0件です。全問題から出題してもよろしいですか？`);
+          if(!ok) return;
+          bank = window.questions.slice();
+        }
+        window.bank = bank;
+        window.order = bank.map((_,i)=>i);
+        window.current = 0;
+        window.answers = {};
+        window.choiceOrder = {};
+        try{
+          document.getElementById('summary')?.classList.add('hidden');
+          document.getElementById('menu')?.classList.add('hidden');
+          document.getElementById('intro')?.classList.remove('hidden');
+          document.getElementById('quiz')?.classList.remove('hidden');
+        }catch(e){}
+        if(typeof window.renderCurrent === 'function'){ window.renderCurrent(); }
+      };
+    }
+  });
 })();
 </script>
 
