@@ -504,7 +504,7 @@ window.TIME_LIMIT_MINUTES = window.TIME_LIMIT_MINUTES || {1: 30, 2: 25, 3: 20, 4
           answered = Object.keys(window.answers).length;
         }
       }catch(e){}
-      var remQ = Math.max(0, total - answered);
+      var remQ = Math.max(0, total - (Number(window.current||0) + 1));
       if(remEl) remEl.textContent = '残り問題数: ' + remQ + '問';
 
       // auto-finish when time is up
@@ -586,33 +586,6 @@ window.TIME_LIMIT_MINUTES = window.TIME_LIMIT_MINUTES || {1: 30, 2: 25, 3: 20, 4
       window.backToMenu._hudV2Wrapped = true;
     }
   });
-})();
-</script>
-  
-<!-- HUD 残り問題数を「全体数 - (current+1)」で減少させるパッチ -->
-<script>
-(function(){
-  // 500msごとに現在位置から残り問題数を再計算
-  function refreshRemaining(){
-    try{
-      var remEl = document.getElementById('hud-remaining');
-      if(!remEl) return;
-      var total = Array.isArray(window.order) ? window.order.length : 0;
-      var remQ = Math.max(0, total - (Number(window.current||0) + 1));
-      remEl.textContent = '残り問題数: ' + remQ + '問';
-    }catch(e){}
-  }
-
-  // 既存HUDのタイマーとは独立して“残り問題数”だけを常に最新化
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', function(){
-      refreshRemaining();
-      setInterval(refreshRemaining, 500);
-    });
-  } else {
-    refreshRemaining();
-    setInterval(refreshRemaining, 500);
-  }
 })();
 </script>
 
