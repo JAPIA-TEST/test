@@ -616,5 +616,45 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+
+<!-- once-per-test confirm wrapper (non-destructive) -->
+<script>
+(function(){
+  // Keep original functions
+  var _origBackToMenu = window.backToMenu;
+  var _origStart = window.start;
+
+  // Shown-flag: reset on each new test start
+  window._backConfirmShown = false;
+  if (typeof _origStart === 'function') {
+    window.start = function(){
+      try { window._backConfirmShown = false; } catch(_) {}
+      return _origStart.apply(this, arguments);
+    };
+  }
+
+  // Wrap backToMenu to show confirm ONLY ONCE per test session
+  if (typeof _origBackToMenu === 'function') {
+    window.backToMenu = function(skipConfirm){
+      // Respect explicit skip (e.g., result screen button)
+      if (skipConfirm === true) {
+        return _origBackToMenu(true);
+      }
+      // Show confirm just once per session
+      if (!window._backConfirmShown) {
+        window._backConfirmShown = true;
+        if (!confirm('試験を中断してメニューに戻ります。進捗は失われます。よろしいですか？')) {
+          return; // user canceled
+        }
+        // After first confirmation, always skip original confirm
+        return _origBackToMenu(true);
+      }
+      // Already shown once in this session -> skip confirm
+      return _origBackToMenu(true);
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
