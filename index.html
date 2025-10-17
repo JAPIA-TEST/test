@@ -31,6 +31,14 @@
   .badge{display:inline-block;padding:6px 10px;border-radius:9999px;border:1px solid #e5e7eb;background:#f9fafb;font-size:12px;color:#111827;}
 </style>
 
+
+<style>
+  /* Clickable areas visible outline */
+  .grade{ border:2px solid #e5e7eb; }
+  .grade:hover{ outline:3px solid #93c5fd; border-color:#93c5fd; }
+  .grade.active{ outline:3px solid #2563eb; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,0.12) inset; }
+</style>
+
 </head>
 <body>
   <header>
@@ -458,86 +466,124 @@ document.addEventListener('DOMContentLoaded', function(){
 
 
 <script>
+window.TIME_LIMIT_MINUTES = window.TIME_LIMIT_MINUTES || {1: 30, 2: 25, 3: 20, 4: 15}; // 級ごとの制限時間（分）
+</script>
+
+
+<script>
 (function(){
-  if (window._hudPatched) return; window._hudPatched = true;
+  if (window._hudPatchedV2) return; window._hudPatchedV2 = true;
 
   function pad(n){ return (n<10?'0':'') + n; }
   function fmt(secs){
+    secs = Math.max(0, secs|0);
     const m = Math.floor(secs/60), s = secs%60;
     return pad(m) + ':' + pad(s);
   }
-  function updateHud(){
+
+  function computeRemainingSeconds(){
+    if (!window._deadlineTs) return 0;
+    return Math.max(0, Math.floor((window._deadlineTs - Date.now())/1000));
+  }
+
+  function updateHudCountdown(){
     try{
       var timeEl = document.getElementById('hud-time');
-      var remEl = document.getElementById('hud-remaining');
+      var remEl  = document.getElementById('hud-remaining');
       if(!timeEl && !remEl) return;
 
-      var startedAt = window.startedAt || window._startedAtHud || null;
-      if(startedAt){
-        var secs = Math.max(0, Math.floor((Date.now() - startedAt)/1000));
-        if(timeEl) timeEl.textContent = '経過: ' + fmt(secs);
-      }
+      // countdown time (remaining)
+      var secs = computeRemainingSeconds();
+      if(timeEl) timeEl.textContent = '残り時間: ' + fmt(secs);
+
+      // remaining questions: total - answered
       var total = Array.isArray(window.order) ? window.order.length : 0;
-      var rem = total ? Math.max(0, total - (Number(window.current||0) + 1)) : 0;
-      if(remEl) remEl.textContent = '残り: ' + rem + '問';
+      var answered = 0;
+      try{
+        if (window.answers && typeof window.answers === 'object') {
+          answered = Object.keys(window.answers).length;
+        }
+      }catch(e){}
+      var remQ = Math.max(0, total - answered);
+      if(remEl) remEl.textContent = '残り問題数: ' + remQ + '問';
+
+      // auto-finish when time is up
+      if (secs <= 0){
+        try { if (window._hudTimer) { clearInterval(window._hudTimer); window._hudTimer = null; } } catch(e){}
+        if (typeof window.finish === 'function') window.finish();
+      }
     }catch(e){ /* noop */ }
   }
 
-  function startTimer(){
+  function startCountdown(){
     try{
-      window._startedAtHud = Date.now();
+      // decide limit by selectedGrade (fallback 20 min)
+      var g = Number(window.selectedGrade || 0);
+      var map = (window.TIME_LIMIT_MINUTES || {});
+      var limitMin = Number(map[g] || 20);
+      window._deadlineTs = Date.now() + limitMin*60*1000;
       if (window._hudTimer) clearInterval(window._hudTimer);
-      window._hudTimer = setInterval(updateHud, 1000);
-      updateHud();
+      window._hudTimer = setInterval(updateHudCountdown, 1000);
+      updateHudCountdown();
     }catch(e){}
   }
-  function stopTimer(){
+  function stopCountdown(){
     try{ if(window._hudTimer){ clearInterval(window._hudTimer); window._hudTimer = null; } }catch(e){}
+    window._deadlineTs = null;
   }
 
   document.addEventListener('DOMContentLoaded', function(){
-    // wrap start()
-    if (typeof window.start === 'function' && !window.start._hudWrapped){
+    // Ensure HUD labels are present
+    if(!document.getElementById('hud-time') || !document.getElementById('hud-remaining')){
+      var quiz = document.getElementById('quiz');
+      if(quiz){
+        var hud = document.createElement('div');
+        hud.className = 'hud';
+        hud.innerHTML = '<span id="hud-time" class="badge">残り時間: 00:00</span> <span id="hud-remaining" class="badge">残り問題数: 0問</span>';
+        quiz.insertBefore(hud, quiz.firstChild);
+      }
+    }
+
+    // wrap start() to begin countdown
+    if (typeof window.start === 'function' && !window.start._hudV2Wrapped){
       var _origStart = window.start;
       window.start = function(){
         var r = _origStart.apply(this, arguments);
-        // ensure a start timestamp exists even if original code doesn't set it
-        if (!window.startedAt) window.startedAt = new Date();
-        startTimer();
+        startCountdown();
         return r;
       };
-      window.start._hudWrapped = true;
+      window.start._hudV2Wrapped = true;
     }
 
-    // wrap renderCurrent()
-    if (typeof window.renderCurrent === 'function' && !window.renderCurrent._hudWrapped){
+    // wrap renderCurrent() to update remaining
+    if (typeof window.renderCurrent === 'function' && !window.renderCurrent._hudV2Wrapped){
       var _origRender = window.renderCurrent;
       window.renderCurrent = function(){
         var r = _origRender.apply(this, arguments);
-        updateHud();
+        updateHudCountdown();
         return r;
       };
-      window.renderCurrent._hudWrapped = true;
+      window.renderCurrent._hudV2Wrapped = true;
     }
 
-    // wrap finish()
-    if (typeof window.finish === 'function' && !window.finish._hudWrapped){
+    // wrap finish() to stop countdown
+    if (typeof window.finish === 'function' && !window.finish._hudV2Wrapped){
       var _origFinish = window.finish;
       window.finish = function(){
-        stopTimer();
+        stopCountdown();
         return _origFinish.apply(this, arguments);
       };
-      window.finish._hudWrapped = true;
+      window.finish._hudV2Wrapped = true;
     }
 
-    // wrap backToMenu() if exists
-    if (typeof window.backToMenu === 'function' && !window.backToMenu._hudWrapped){
+    // wrap backToMenu() to stop countdown
+    if (typeof window.backToMenu === 'function' && !window.backToMenu._hudV2Wrapped){
       var _origBack = window.backToMenu;
       window.backToMenu = function(){
-        stopTimer();
+        stopCountdown();
         return _origBack.apply(this, arguments);
       };
-      window.backToMenu._hudWrapped = true;
+      window.backToMenu._hudV2Wrapped = true;
     }
   });
 })();
