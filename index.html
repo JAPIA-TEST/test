@@ -489,23 +489,11 @@ window.TIME_LIMIT_MINUTES = window.TIME_LIMIT_MINUTES || {1: 30, 2: 25, 3: 20, 4
   function updateHudCountdown(){
     try{
       var timeEl = document.getElementById('hud-time');
-      var remEl  = document.getElementById('hud-remaining');
-      if(!timeEl && !remEl) return;
+      if(!timeEl) return;
 
       // countdown time (remaining)
       var secs = computeRemainingSeconds();
       if(timeEl) timeEl.textContent = '残り時間: ' + fmt(secs);
-
-      // remaining questions: total - answered
-      var total = Array.isArray(window.order) ? window.order.length : 0;
-      var answered = 0;
-      try{
-        if (window.answers && typeof window.answers === 'object') {
-          answered = Object.keys(window.answers).length;
-        }
-      }catch(e){}
-      var remQ = Math.max(0, total - answered);
-      if(remEl) remEl.textContent = '残り問題数: ' + remQ + '問';
 
       // auto-finish when time is up
       if (secs <= 0){
